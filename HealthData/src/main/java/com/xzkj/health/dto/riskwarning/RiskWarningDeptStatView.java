@@ -7,6 +7,7 @@ public record RiskWarningDeptStatView(
         int sleep,
         int temperature,
         int pressure,
+        int deviceAlarm,
         int total
 ) {
 }

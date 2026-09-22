@@ -26,14 +26,6 @@ export function getPreShiftReviews(params) {
   })
 }
 
-export function applyPreShiftReviewAction(empCode, data) {
-  return request({
-    url: `/command-center/pre-shift-reviews/${encodeURIComponent(empCode)}/action`,
-    method: 'post',
-    data
-  })
-}
-
 export function getCommandCenterIncident(warningId, occurredAt) {
   return request({
     url: `/command-center/incidents/${warningId}`,

@@ -3668,6 +3668,22 @@ $danger: $red;
   color: var(--uc-muted);
 }
 
+/* 0. GIS 态势图: 整行矿井地图 */
+.unified-control-page .uc-map-band {
+  min-width: 0;
+  border: 1px solid var(--uc-border);
+  border-radius: 6px;
+  background: var(--uc-panel);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.unified-control-page .uc-map-canvas {
+  position: relative;
+  height: clamp(360px, 42vh, 520px);
+  background: #081018;
+}
+
 /* 1. 核心分析区: 大型趋势图 + 预警流 */
 .unified-control-page .uc-core-analysis-band {
   display: grid;
@@ -3799,6 +3815,17 @@ $danger: $red;
 .unified-control-page .uc-warning-stream .dm-ev-time {
   color: var(--uc-muted);
   font-size: 10px;
+}
+
+.unified-control-page .uc-warning-stream .dm-ev-dept {
+  color: var(--uc-cyan);
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.unified-control-page .uc-warning-stream .dm-ev-dept:hover {
+  text-decoration: underline;
 }
 
 .unified-control-page .uc-warning-stream .dm-ev-val em {

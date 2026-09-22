@@ -144,11 +144,6 @@ export const dashboardComputed: LegacyVueOptions = {
     return this.warningRates || []
   },
 
-  kpiWarningDelta() {
-    if (!this.kpiYesterdayWarnings) return null
-    return Math.round((this.kpiTodayWarnings - this.kpiYesterdayWarnings) / this.kpiYesterdayWarnings * 100)
-  },
-
   unhandledHighCount() {
     return (this.warningEvents || []).filter((e) => !e.handled && e.level === 'danger').length
   },
@@ -158,9 +153,9 @@ export const dashboardComputed: LegacyVueOptions = {
       kpiRealtimeOnline: this.kpiRealtimeOnline,
       kpiRealtimeTotal: this.kpiRealtimeTotal,
       kpiTodayWarnings: this.kpiTodayWarnings,
-      kpiYesterdayWarnings: this.kpiYesterdayWarnings,
-      kpiUnhandledHigh: this.kpiUnhandledHigh,
-      kpiUnhandledMid: this.kpiUnhandledMid,
+      kpiCriticalTotal: this.kpiCriticalTotal,
+      kpiMidTotal: this.kpiMidTotal,
+      kpiLowTotal: this.kpiLowTotal,
       warningEvents: this.warningEvents,
       personCounts: this.personCounts,
       realtimeWarningUsers: this.healthSnapshot?.warningUsers ?? this.healthSnapshot?.abnormalUsers,
@@ -271,6 +266,25 @@ export const dashboardComputed: LegacyVueOptions = {
       warningTypesData: this.warningTypesData,
       warningEvents: this.warningEvents
     })
+  },
+
+  // Re-shapes the already-loaded warningEvents into the field names
+  // DepartmentIncidentDrawer expects (dept/user/status instead of
+  // deptName/userName/handled). id + occurredAt are kept so emitted events
+  // can be matched back to the original warningEvents item.
+  departmentDrawerEvents() {
+    return (this.warningEvents || []).map((event) => ({
+      id: event.id,
+      occurredAt: event.occurredAt,
+      dept: event.deptName && event.deptName !== '--' ? event.deptName : '未分组',
+      user: event.userName,
+      type: event.type,
+      time: event.time,
+      location: event.location,
+      owner: event.owner && event.owner !== '--' ? event.owner : '未分派',
+      level: event.level === 'danger' ? 'critical' : (event.level === 'warn' ? 'high' : 'medium'),
+      status: event.handled ? 'RESOLVED' : 'NEW'
+    }))
   },
 
   riskDeptList() {

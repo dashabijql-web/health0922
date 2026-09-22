@@ -45,15 +45,15 @@
         </button>
         <button type="button" class="uc-tool-btn" @click="$router.push('/alert-management/notifications')">
           <el-icon><FirstAidKit /></el-icon>
-          <span>处置中心</span>
+          <span>风险事件中心</span>
         </button>
         <button type="button" class="uc-tool-btn" @click="$router.push('/health-monitor/real-time')">
           <el-icon><Monitor /></el-icon>
-          <span>实时大盘</span>
+          <span>实时监控</span>
         </button>
         <button type="button" class="uc-tool-btn" @click="$router.push('/health-monitor/mine-entry')">
           <el-icon><Odometer /></el-icon>
-          <span>班前准入</span>
+          <span>入井健康准入</span>
         </button>
         <button type="button" class="uc-tool-btn" @click="$router.push('/admin/device-list')">
           <el-icon><Cpu /></el-icon>
@@ -75,6 +75,20 @@
 
     <!-- 核心业务与图表工作区 -->
     <main class="uc-workspace" ref="dmBody">
+      <!-- 0. 现场态势: 矿井 GIS 地图，整行铺满 -->
+      <section class="uc-map-band">
+        <div class="uc-panel-head">
+          <div class="uc-head-title">
+            <span class="uc-pip"></span>
+            <h2>现场态势</h2>
+            <span class="uc-head-sub">矿井巷道 GIS</span>
+          </div>
+        </div>
+        <div class="uc-map-canvas">
+          <MineGisMap />
+        </div>
+      </section>
+
       <!-- 1. 核心分析区: 大型趋势图 (68%) + 实时预警流 (32%) -->
       <section class="uc-core-analysis-band">
         <div class="uc-panel uc-trends-panel">
@@ -87,13 +101,15 @@
             <div class="uc-trend-tabs" role="tablist">
               <button type="button" role="tab" :aria-selected="activeTrendTab === 'vitals'" :class="{ 'is-active': activeTrendTab === 'vitals' }" @click="switchTrendTab('vitals')">体征异常趋势</button>
               <button type="button" role="tab" :aria-selected="activeTrendTab === 'warnings'" :class="{ 'is-active': activeTrendTab === 'warnings' }" @click="switchTrendTab('warnings')">预警时段分布</button>
-              <button type="button" role="tab" :aria-selected="activeTrendTab === 'environment'" :class="{ 'is-active': activeTrendTab === 'environment' }" @click="switchTrendTab('environment')">作业环境风险</button>
+              <button type="button" role="tab" :aria-selected="activeTrendTab === 'trend7d'" :class="{ 'is-active': activeTrendTab === 'trend7d' }" @click="switchTrendTab('trend7d')">预警7日趋势</button>
+              <button type="button" role="tab" :aria-selected="activeTrendTab === 'typeDist'" :class="{ 'is-active': activeTrendTab === 'typeDist' }" @click="switchTrendTab('typeDist')">预警类型分布</button>
             </div>
           </div>
           <div class="uc-trend-canvas-wrap">
             <div v-show="activeTrendTab === 'vitals'" ref="unifiedTrendChart" class="uc-chart-canvas"></div>
             <div v-show="activeTrendTab === 'warnings'" id="hourDistChart" class="uc-chart-canvas"></div>
-            <div v-show="activeTrendTab === 'environment'" ref="envChartRef" class="uc-chart-canvas"></div>
+            <div v-show="activeTrendTab === 'trend7d'" id="warningTrend7dChart" class="uc-chart-canvas"></div>
+            <div v-show="activeTrendTab === 'typeDist'" id="warnTypeChart" class="uc-chart-canvas"></div>
           </div>
         </div>
 
@@ -112,11 +128,11 @@
             <DashboardWarningStream
               class="uc-warning-stream"
               :warning-events="warningEvents"
-              :latest-danger-event="latestDangerEvent"
               :format-time-ago="formatTimeAgo"
               :open-warn-curve="openWarnCurve"
               :open-handle-dialog="openHandleDialog"
               :open-command-incident="openCommandIncident"
+              :open-department-drawer="openDepartmentDrawer"
             />
           </div>
         </div>
@@ -189,13 +205,13 @@
         </div>
       </section>
 
-      <!-- 3. 辅助区: 班前准入 (33%) + 设备状态 (33%) + 部门风险排名 (33%) -->
+      <!-- 3. 辅助区: 入井健康准入 (33%) + 设备状态 (33%) + 部门风险排名 (33%) -->
       <section class="uc-auxiliary-band uc-right-rail">
         <div class="uc-panel uc-admission-panel">
           <div class="uc-panel-head">
             <div class="uc-head-title">
               <span class="uc-pip"></span>
-              <h2>班前准入</h2>
+              <h2>入井健康准入</h2>
               <span class="uc-head-sub">达标审核</span>
             </div>
             <button type="button" class="uc-panel-link" @click="$router.push('/health-monitor/mine-entry')">准入名单 ›</button>
@@ -229,7 +245,7 @@
               <h2>设备状态</h2>
               <span class="uc-head-sub">实时在线</span>
             </div>
-            <button type="button" class="uc-panel-link" @click="goToDeviceList({ route: '/admin/device-list' })">设备列表 ›</button>
+            <button type="button" class="uc-panel-link" @click="goToDeviceList({ route: '/admin/device-list' })">设备管理 ›</button>
           </div>
           <div class="uc-devices-body">
             <div class="uc-device-summary">
@@ -287,20 +303,29 @@
       :load-metric-detail-chart="loadMetricDetailChart"
       :init-warn-curve-chart="initWarnCurveChart"
       :submit-handle="submitHandle"
+      :mine-ai-dialog="mineAiDialog"
+      :regenerate-mine-ai="regenerateMineAi"
     />
 
     <IncidentCommandDrawer
       v-model:visible="incidentDrawerVisible"
       :event="currentIncidentEvent"
-      source-page="dashboard"
       @updated="handleIncidentUpdated"
-      @open-command-center="goToCommandIncident(currentIncidentEvent)"
+    />
+
+    <DepartmentIncidentDrawer
+      v-model:visible="departmentDrawerVisible"
+      :department="currentDepartment"
+      :events="departmentDrawerEvents"
+      @show-event="handleDepartmentShowEvent"
+      @handle-event="handleDepartmentHandleEvent"
+      @show-profile="handleDepartmentShowProfile"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import {
   Cpu,
   FirstAidKit,
@@ -314,22 +339,28 @@ import DashboardPersonSearch from './components/DashboardPersonSearch.vue'
 import DashboardDialogs from './components/DashboardDialogs.vue'
 import DashboardWarningStream from './components/DashboardWarningStream.vue'
 import IncidentCommandDrawer from '../../safety-command/components/IncidentCommandDrawer.vue'
+import DepartmentIncidentDrawer from '../../safety-command/components/DepartmentIncidentDrawer.vue'
+import MineGisMap from '../../safety-command/components/MineGisMap.vue'
 import { useDashboardPage } from './use-dashboard-page'
 
 const {
   activePeriod, admissionQueueItems, alertTypeLabel, currentIncidentEvent, currentTime,
-  dashboardDataError, dashboardDataState,
+  currentDepartment, dashboardDataError, dashboardDataState,
+  departmentDrawerEvents, departmentDrawerVisible,
   deptDetailModal, deptPersonModal, deviceCards, empDrawer, fetchData, focusWarningEvents,
-  formatTimeAgo, formatWarnTime, goToCommandIncident, goToDeviceList, goToEmployeeProfile,
-  handleDialog, handleIncidentUpdated, healthExceptionCards, healthSnapshot, healthSnapshotStatusText,
-  headerMetricStripItems, incidentDrawerVisible, initEnvHealthChart, initHourDistChart,
-  initUnifiedTrendChart, initWarnCurveChart, isFullscreen, isRefreshing, kpiUnhandledHigh,
-  lastRefreshText, latestDangerEvent, loadDeptDetailChart, loadDeptPersonChart,
-  loadMetricDetailChart, metricDetailModal, onHeaderMetricSelect, openAdmissionQueue,
+  formatTimeAgo, formatWarnTime, goToDeviceList, goToEmployeeProfile,
+  handleDepartmentHandleEvent, handleDepartmentShowEvent, handleDepartmentShowProfile,
+  handleDialog, handleIncidentUpdated, handleMineAi, healthExceptionCards, healthSnapshot, healthSnapshotStatusText,
+  headerMetricStripItems, incidentDrawerVisible, initHourDistChart,
+  initUnifiedTrendChart, initWarnCurveChart, initWarnTypeChart, initWarningTrend7dChart,
+  isFullscreen, isRefreshing, kpiUnhandledHigh,
+  lastRefreshText, loadDeptDetailChart, loadDeptPersonChart,
+  loadMetricDetailChart, metricDetailModal, mineAiDialogVisible, mineAiLoading, mineAiRendered, mineAiTime,
+  onHeaderMetricSelect, openAdmissionQueue, openDepartmentDrawer,
   openCommandIncident, openEmployeeDrawer, openHandleDialog, openWarnCurve, periodLabel,
   periodOptions, preShiftData, submitHandle, toggleMineAiPanel, switchPeriod, toggleFullscreen,
   top5DisplayData, top5Max, trendBlockTitle, trendPanelSubtitle, unifiedTrendChart, warnCurveModal, warningEvents,
-  $router, dmScale, dmBody, envChartRef
+  $router, dmScale, dmBody
 } = useDashboardPage()
 
 
@@ -343,16 +374,28 @@ const snapshotStatusToneClass = computed(() => {
   return 'is-empty'
 })
 
-const activeTrendTab = ref<'vitals' | 'warnings' | 'environment'>('vitals')
-function switchTrendTab(tab: 'vitals' | 'warnings' | 'environment') {
+const mineAiDialog = reactive({
+  visible: mineAiDialogVisible,
+  loading: mineAiLoading,
+  rendered: mineAiRendered,
+  time: mineAiTime
+})
+function regenerateMineAi() {
+  return handleMineAi(true)
+}
+
+const activeTrendTab = ref<'vitals' | 'warnings' | 'trend7d' | 'typeDist'>('vitals')
+function switchTrendTab(tab: 'vitals' | 'warnings' | 'trend7d' | 'typeDist') {
   activeTrendTab.value = tab
   nextTick(() => {
     if (tab === 'vitals') {
       initUnifiedTrendChart?.()
     } else if (tab === 'warnings') {
       initHourDistChart?.()
-    } else if (tab === 'environment') {
-      initEnvHealthChart?.()
+    } else if (tab === 'trend7d') {
+      initWarningTrend7dChart?.()
+    } else if (tab === 'typeDist') {
+      initWarnTypeChart?.()
     }
   })
 }

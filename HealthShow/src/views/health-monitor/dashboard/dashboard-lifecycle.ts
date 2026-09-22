@@ -79,7 +79,7 @@ export function mountDashboardPage(vm) {
     vm.initHourDistChart()
     vm.initUnifiedTrendChart()
     vm.initWarnTypeChart()
-    vm.initEnvHealthChart()
+    vm.initWarningTrend7dChart()
   })
   vm.fetchData()
   vm.loadMineAiCache()
@@ -106,14 +106,12 @@ export function unmountDashboardPage(vm) {
   detachDashboardListeners(vm)
 
   Object.values(vm.charts || {}).forEach(disposeChart)
-  disposeChart(vm._envChart)
   disposeChart(vm.empDrawer.trendChart)
   disposeChart(vm.empDrawer.radarChart)
   disposeChart(vm.deptPersonModal?.chart)
   disposeChart(vm.deptDetailModal?.chart)
   disposeChart(vm.metricDetailModal?.chart)
   disposeChart(vm.warnCurveModal?.chart)
-  vm._envChart = null
   vm.empDrawer.trendChart = null
   vm.empDrawer.radarChart = null
   if (vm.charts) {

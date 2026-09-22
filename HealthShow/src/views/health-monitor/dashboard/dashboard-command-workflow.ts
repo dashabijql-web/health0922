@@ -17,9 +17,9 @@ export function buildDashboardClosureLaneItems({
     },
     {
       key: 'pending',
-      label: '今日待办',
+      label: '待办事件',
       value: pending,
-      note: '服务端全量统计',
+      note: '不限产生日期，服务端全量统计',
       tone: pending > 0 ? 'warning' : 'success',
       route: '/alert-management/records'
     },
@@ -42,13 +42,7 @@ export function buildDashboardClosureLaneItems({
   ]
 }
 
-function capabilityValue(capability) {
-  return capability?.status === 'AVAILABLE' ? (capability.value ?? 0) : '--'
-}
-
-export function buildDashboardAdmissionQueueItems({ preShiftData, admissionSummary }) {
-  const awaitingReview = admissionSummary?.awaitingReview
-  const retestOverdue = admissionSummary?.retestOverdue
+export function buildDashboardAdmissionQueueItems({ preShiftData }) {
   return [
     {
       key: 'passed',
@@ -65,24 +59,6 @@ export function buildDashboardAdmissionQueueItems({ preShiftData, admissionSumma
       note: '查看异常指标与人员',
       tone: (preShiftData?.failedCount || 0) > 0 ? 'danger' : 'success',
       route: { path: '/health-monitor/mine-entry', query: { status: 'fail', from: 'dashboard' } }
-    },
-    {
-      key: 'review',
-      label: '待复检',
-      value: capabilityValue(awaitingReview),
-      note: awaitingReview?.status === 'AVAILABLE' ? '进入复检任务名单' : '复检状态未接入',
-      tone: (awaitingReview?.value || 0) > 0 ? 'warning' : 'success',
-      unavailable: awaitingReview?.status !== 'AVAILABLE',
-      route: { path: '/health-monitor/mine-entry', query: { status: 'review', from: 'dashboard' } }
-    },
-    {
-      key: 'retest-overdue',
-      label: '复检超时',
-      value: capabilityValue(retestOverdue),
-      note: retestOverdue?.status === 'AVAILABLE' ? '优先处理已超时任务' : '复检时限未接入',
-      tone: (retestOverdue?.value || 0) > 0 ? 'danger' : 'success',
-      unavailable: retestOverdue?.status !== 'AVAILABLE',
-      route: { path: '/health-monitor/mine-entry', query: { status: 'overdue', from: 'dashboard' } }
     }
   ]
 }

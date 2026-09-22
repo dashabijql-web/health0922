@@ -43,7 +43,9 @@ public class WatchBehaviorAlertService {
                     ? employeeMapper.selectById(binding.getEmpId()).getEmpCode()
                     : imei;
             String level = alertType.contains("SOS") ? "高危" : alertType.contains("跌倒") || alertType.contains("房颤") ? "高危" : "中危";
-            riskWarningService.insertWarning(userCode, alertType, "行为报警", alertType, level,
+            // 设备主动报警没有数值阈值，indicator_value 是 NOT NULL 列，用空字符串占位，
+            // 避免和 warningType 显示重复内容（前端遇到空字符串会展示为"--"）
+            riskWarningService.insertWarning(userCode, alertType, "行为报警", "", level,
                     "DEVICE_ALARM", eventCode(alertType), imei, null);
         } catch (Exception e) {
             log.error("保存报警记录失败: IMEI={}, 类型={}", imei, alertType, e);

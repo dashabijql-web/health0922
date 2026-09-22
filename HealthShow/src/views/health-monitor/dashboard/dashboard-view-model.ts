@@ -2,9 +2,9 @@ export function buildDashboardHeaderKpis({
   kpiRealtimeOnline,
   kpiRealtimeTotal,
   kpiTodayWarnings,
-  kpiYesterdayWarnings,
-  kpiUnhandledHigh,
-  kpiUnhandledMid,
+  kpiCriticalTotal,
+  kpiMidTotal,
+  kpiLowTotal,
   warningEvents,
   personCounts,
   realtimeWarningUsers,
@@ -20,15 +20,6 @@ export function buildDashboardHeaderKpis({
   const warningUnavailable = sectionUnavailable('commandSummary')
   const deviceUnavailable = sectionUnavailable('deviceActivation')
   const preShiftUnavailable = sectionUnavailable('preShift')
-  const delta = kpiYesterdayWarnings
-    ? Math.round((kpiTodayWarnings - kpiYesterdayWarnings) / kpiYesterdayWarnings * 100)
-    : null
-
-  const deltaText = periodLabel === '当日'
-    ? delta !== null
-      ? `${delta > 0 ? '↑' : '↓'}${Math.abs(delta)}% 较昨${kpiYesterdayWarnings}件`
-      : `昨日 ${kpiYesterdayWarnings}件`
-    : `${periodLabel}累计`
 
   return [
     {
@@ -44,19 +35,10 @@ export function buildDashboardHeaderKpis({
     {
       label: `${periodLabel}预警`,
       val: warningUnavailable ? '--' : kpiTodayWarnings,
-      cls: 'kpi-red',
+      cls: kpiCriticalTotal > 0 ? 'kpi-red' : 'kpi-teal',
       clickable: true,
       route: '/health-monitor/risk-warning',
-      sub: warningUnavailable ? '等待统计数据' : deltaText,
-      subCls: delta !== null && delta > 0 ? 'sub-up' : 'sub-down'
-    },
-    {
-      label: '高危待处理',
-      val: warningUnavailable ? '--' : kpiUnhandledHigh,
-      cls: kpiUnhandledHigh > 0 ? 'kpi-red' : 'kpi-teal',
-      clickable: true,
-      route: '/health-monitor/risk-warning',
-      sub: warningUnavailable ? '等待统计数据' : `中危 ${kpiUnhandledMid}`
+      sub: warningUnavailable ? '等待统计数据' : `高${kpiCriticalTotal} · 中${kpiMidTotal} · 低${kpiLowTotal}`
     },
     {
       label: '实时异常人员',
@@ -64,7 +46,7 @@ export function buildDashboardHeaderKpis({
       cls: 'kpi-orange',
       clickable: true,
       route: '/health-monitor/risk-warning',
-      sub: onlineUnavailable ? '等待实时快照' : '在线窗口内去重'
+      sub: onlineUnavailable ? '等待实时快照' : '最近一段时间内，同一人只算1次'
     },
     {
       label: '设备激活',

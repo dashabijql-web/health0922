@@ -1,5 +1,6 @@
 import { getDailyTrend, getWarningCounts, getDeptDailyDetail, getMetricDailyDetail, getDeptDailyPersons } from '@/api/health'
 import { getWarningTypes } from '@/api/statistics'
+import { getRiskWarningTrend } from '@/api/risk-warning'
 import { dashboardCache as _cache } from './dashboard-cache'
 import { DASHBOARD_REQUEST_OPTIONS } from './dashboard-runtime-data'
 
@@ -15,29 +16,6 @@ export function buildDashboardDateRange(daysBack = 6) {
   start.setDate(start.getDate() - daysBack)
   const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   return [formatDate(start), formatDate(today)]
-}
-
-export function buildDashboardEnvSeries() {
-  const now = new Date()
-  const hours: string[] = []
-  const coData: number[] = []
-  const dustData: number[] = []
-  const boData: number[] = []
-
-  for (let i = 41; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 4 * 3600000)
-    hours.push(`${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}h`)
-    const isShift = d.getHours() >= 8 && d.getHours() <= 20
-    const co = +((isShift ? 8 : 2) + Math.random() * (isShift ? 6 : 2)).toFixed(1)
-    const dust = +((isShift ? 1.5 : 0.3) + Math.random() * (isShift ? 1.8 : 0.5)).toFixed(2)
-    const baseBO = 97.5 - co * 0.08 - dust * 0.3
-    const bo = +(baseBO + (Math.random() - 0.5) * 0.4).toFixed(1)
-    coData.push(co)
-    dustData.push(dust)
-    boData.push(Math.min(99, Math.max(93, bo)))
-  }
-
-  return { hours, coData, dustData, boData }
 }
 
 export async function fetchDashboardDeptDetailData({ deptName, startTime, endTime }) {
@@ -163,6 +141,31 @@ export async function fetchDashboardWarningTypesData(periodRange) {
   }
 }
 
+// Mirrors the shape risk-warning/trend can return: either a flat array of
+// {date, count} rows, or a {dates, series: {typeKey: number[]}} breakdown by
+// warning type that needs to be summed per day.
+export function normalizeWarningTrendDays(rawTrend) {
+  if (Array.isArray(rawTrend)) return rawTrend
+  if (rawTrend?.dates && Array.isArray(rawTrend.dates)) {
+    const seriesArrays = Object.values(rawTrend.series || {}).filter(Array.isArray)
+    return rawTrend.dates.map((date, index) => ({
+      date,
+      count: seriesArrays.reduce((sum: number, series: any) => sum + (series[index] || 0), 0)
+    }))
+  }
+  return []
+}
+
+export async function fetchDashboardWarningTrend7dData() {
+  try {
+    const res = await getRiskWarningTrend(7)
+    if (res.code !== 200) return []
+    return normalizeWarningTrendDays(res.data)
+  } catch {
+    return []
+  }
+}
+
 export function resolveDashboardWarningDistSeries(dist, activePeriod) {
   if (!dist.labels || !dist.counts || !Array.isArray(dist.labels) || !Array.isArray(dist.counts) || dist.counts.length === 0) {
     return {
@@ -185,7 +188,9 @@ export function resolveDashboardWarningDistSeries(dist, activePeriod) {
         hourCounts[hour] = dist.counts[index] || 0
       }
     })
-    labels = Array.from({ length: 24 }, (_, i) => i % 3 === 0 ? `${i}h` : '')
+    // Keep a label for every bar so the tooltip always has a meaningful time.
+    // The chart option controls which labels are visibly rendered on the axis.
+    labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`)
     vals = hourCounts
   } else {
     labels = (dist.labels || []).map((date) => String(date).slice(5))

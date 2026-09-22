@@ -108,7 +108,7 @@ import {
   formatDate,
   formatHistoryTemperature,
   normalizeHistoryRecords
-} from '../employee-profile-history'
+} from '../immersive-body-history'
 
 interface HistoryMetric {
   key: string
@@ -137,8 +137,8 @@ const props = defineProps({
 
 const quickRanges = [{ label: '今日', days: 1 }, { label: '近7日', days: 7 }, { label: '近30日', days: 30 }]
 const metrics = HISTORY_METRICS as HistoryMetric[]
-const activeDays = ref(7)
-const dateRange = ref<[string, string]>(defaultHistoryRange(7) as [string, string])
+const activeDays = ref(1)
+const dateRange = ref<[string, string]>(defaultHistoryRange(1) as [string, string])
 const activeTab = ref('chart')
 const activeMetrics = ref(metrics.map((metric) => metric.key))
 const loading = ref(false)

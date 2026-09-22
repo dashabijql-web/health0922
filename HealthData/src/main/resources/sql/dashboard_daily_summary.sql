@@ -10,6 +10,10 @@ BEGIN
         blood_oxygen_samples INT NOT NULL,
         temperature_samples INT NOT NULL,
         pressure_samples INT NOT NULL,
+        heart_rate_abnormal_records INT NOT NULL,
+        blood_oxygen_abnormal_records INT NOT NULL,
+        temperature_abnormal_records INT NOT NULL,
+        pressure_abnormal_records INT NOT NULL,
         blood_pressure_samples INT NOT NULL,
         steps_samples INT NOT NULL,
         sleep_samples INT NOT NULL,
@@ -36,6 +40,14 @@ IF COL_LENGTH('dbo.health_user_daily_summary', 'steps_samples') IS NULL
     ALTER TABLE dbo.health_user_daily_summary ADD steps_samples INT NOT NULL CONSTRAINT DF_health_daily_steps_samples DEFAULT 0;
 IF COL_LENGTH('dbo.health_user_daily_summary', 'sleep_samples') IS NULL
     ALTER TABLE dbo.health_user_daily_summary ADD sleep_samples INT NOT NULL CONSTRAINT DF_health_daily_sleep_samples DEFAULT 0;
+IF COL_LENGTH('dbo.health_user_daily_summary', 'heart_rate_abnormal_records') IS NULL
+    ALTER TABLE dbo.health_user_daily_summary ADD heart_rate_abnormal_records INT NOT NULL CONSTRAINT DF_health_daily_hr_abnormal_records DEFAULT 0;
+IF COL_LENGTH('dbo.health_user_daily_summary', 'blood_oxygen_abnormal_records') IS NULL
+    ALTER TABLE dbo.health_user_daily_summary ADD blood_oxygen_abnormal_records INT NOT NULL CONSTRAINT DF_health_daily_bo_abnormal_records DEFAULT 0;
+IF COL_LENGTH('dbo.health_user_daily_summary', 'temperature_abnormal_records') IS NULL
+    ALTER TABLE dbo.health_user_daily_summary ADD temperature_abnormal_records INT NOT NULL CONSTRAINT DF_health_daily_temp_abnormal_records DEFAULT 0;
+IF COL_LENGTH('dbo.health_user_daily_summary', 'pressure_abnormal_records') IS NULL
+    ALTER TABLE dbo.health_user_daily_summary ADD pressure_abnormal_records INT NOT NULL CONSTRAINT DF_health_daily_pressure_abnormal_records DEFAULT 0;
 GO
 
 IF OBJECT_ID('dbo.warning_daily_summary', 'U') IS NULL
@@ -115,6 +127,8 @@ BEGIN
                 stat_date, user_code, record_count,
                 heart_rate_samples, blood_oxygen_samples, temperature_samples,
                 pressure_samples, blood_pressure_samples,
+                heart_rate_abnormal_records, blood_oxygen_abnormal_records,
+                temperature_abnormal_records, pressure_abnormal_records,
                 steps_samples, sleep_samples,
                 avg_heart_rate, avg_blood_oxygen, avg_temperature, avg_pressure,
                 avg_blood_pressure_high, avg_blood_pressure_low,
@@ -123,6 +137,10 @@ BEGIN
             SELECT @day, user_code, COUNT(*),
                 COUNT(heart_rate), COUNT(blood_oxygen), COUNT(temperature),
                 COUNT(pressure), COUNT(CASE WHEN blood_pressure_high IS NOT NULL OR blood_pressure_low IS NOT NULL THEN 1 END),
+                SUM(CASE WHEN heart_rate IS NOT NULL AND (heart_rate > 100 OR heart_rate < 60) THEN 1 ELSE 0 END),
+                SUM(CASE WHEN blood_oxygen IS NOT NULL AND blood_oxygen < 95 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN temperature IS NOT NULL AND (temperature > 375 OR temperature < 360) THEN 1 ELSE 0 END),
+                SUM(CASE WHEN pressure IS NOT NULL AND pressure > 75 THEN 1 ELSE 0 END),
                 COUNT(steps), COUNT(sleep_minutes),
                 AVG(CONVERT(DECIMAL(10,2), heart_rate)),
                 AVG(CONVERT(DECIMAL(10,2), blood_oxygen)),
@@ -180,5 +198,16 @@ BEGIN
        ON target.stat_date = source.stat_date
     WHEN MATCHED THEN UPDATE SET refreshed_at = SYSDATETIME()
     WHEN NOT MATCHED THEN INSERT (stat_date, refreshed_at) VALUES (source.stat_date, SYSDATETIME());
+END;
+GO
+
+-- Backfill the recent dashboard window after adding the anomaly-count columns.
+-- This keeps existing 7/30-day charts meaningful immediately after migration;
+-- the application scheduler continues refreshing only the current day.
+DECLARE @backfill_date DATE = DATEADD(DAY, -29, CONVERT(DATE, GETDATE()));
+WHILE @backfill_date <= CONVERT(DATE, GETDATE())
+BEGIN
+    EXEC dbo.sp_refresh_dashboard_daily_summary @stat_date = @backfill_date;
+    SET @backfill_date = DATEADD(DAY, 1, @backfill_date);
 END;
 GO

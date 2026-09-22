@@ -85,7 +85,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public void updateOfflineStatus(String imei) {
         {
             Device device = baseMapper.selectOne(
-                new LambdaQueryWrapper<Device>().eq(item -> item.getImei(), imei)
+                new LambdaQueryWrapper<Device>().eq(Device::getImei, imei)
             );
             if (device != null) {
                 device.setStatus(0);

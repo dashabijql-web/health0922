@@ -129,6 +129,7 @@
               <span>{{ row.slaClockLabel || '未知' }}</span>
               <strong>{{ row.slaClockText || '--' }}</strong>
             </span>
+            <el-button size="small" plain @click.stop="goToProfile(row)">画像</el-button>
             <el-button v-if="!row.handled" type="warning" size="small" @click.stop="openHandle(row)">处理</el-button>
           </div>
         </div>
@@ -178,8 +179,9 @@
           <el-table-column prop="handleBy" label="处理人" min-width="90">
             <template #default="{row}">{{ row.handleBy||'-' }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="104" fixed="right" align="center">
+          <el-table-column label="操作" width="150" fixed="right" align="center">
             <template #default="{row}">
+              <el-button type="primary" link size="small" @click.stop="goToProfile(row)">画像</el-button>
               <el-button v-if="!row.handled" type="warning" link size="small" @click.stop="openHandle(row)"><el-icon><Edit /></el-icon> 处理</el-button>
               <span v-else class="handled-text">{{ warningHandledStatusLabel(row) }}</span>
             </template>
@@ -287,13 +289,14 @@
 
 <script setup lang="ts">
 import WarningCenterNav from '@/components/WarningCenterNav.vue'
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRoute, type LocationQuery } from 'vue-router'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { Timer, Search, Refresh, Edit, Bell, WarningFilled, WarnTriangleFilled, CircleCheck, Download } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { formatDate } from '@/utils'
 import { useClock } from '@/composables/useClock'
 import { exportToExcel } from '@/utils/export-excel'
+import { createIntervalTask } from '@/utils/task-timer'
 import { levelLabel, warningHandledStatusLabel, warningLevelFilterLabel } from '../common/warning-lifecycle'
 import {
   buildExportRows,
@@ -325,6 +328,7 @@ import type {
 } from './records-types'
 
 const route = useRoute()
+const router = useRouter()
 
 const { currentTime } = useClock()
 const isMobile = ref(window.innerWidth < 768)
@@ -389,6 +393,13 @@ const detailVisible = ref(false)
 const detailRow = ref<WarningRecord | null>(null)
 const openDetail = (row: WarningRecord) => { detailRow.value = row; detailVisible.value = true }
 
+function goToProfile(row: WarningRecord) {
+  void router.push({
+    path: '/health-monitor/employee-profile',
+    query: { userCode: String(row.userCode || row.empCode || '') }
+  })
+}
+
 // Batch selection
 const selectedRows = ref<WarningRecord[]>([])
 const batchLoading = ref(false)
@@ -440,10 +451,25 @@ const exportExcel = async () => {
   } catch (e) { ElMessage.error('导出失败') }
 }
 
+// 待办事件页已合并到这里：处理状态筛选为“待处理”时，像原待办页一样自动轮询刷新
+const pollTask = createIntervalTask(async () => {
+  selectedRows.value = []
+  await Promise.allSettled([loadData(), loadOverview()])
+}, 30000)
+const syncPolling = () => {
+  if (searchForm.handleStatus === 'unhandled') pollTask.start()
+  else pollTask.stop()
+}
+
 onMounted(() => {
   applyRouteFilters()
   loadOverview(); loadData()
+  syncPolling()
 })
+onBeforeUnmount(() => {
+  pollTask.stop()
+})
+watch(() => searchForm.handleStatus, syncPolling)
 watch(() => route.fullPath, () => {
   if (route.name !== 'AlertRecords') return
   pagination.page = 1

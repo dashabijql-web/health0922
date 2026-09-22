@@ -15,7 +15,7 @@ type MetricRow = Record<string, any>
 
 export function useBloodOxygenPage() {
   const router = useRouter()
-  const activePeriod = ref<MetricPeriod>('month')
+  const activePeriod = ref<MetricPeriod>('day')
   const periodOptions = PERIOD_OPTIONS as Array<{ label: string; value: MetricPeriod }>
   const top5Data = ref<MetricRow[]>([])
   const realtimeList = ref<MetricRow[]>([])

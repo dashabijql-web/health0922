@@ -241,25 +241,6 @@
   padding: 1px 7px;
 }
 
-.me-review-workflow {
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-}
-.me-review-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
-  color: #8ba6c8;
-  font-size: 11px;
-}
-.me-review-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
 .me-card-status {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; flex-shrink: 0;

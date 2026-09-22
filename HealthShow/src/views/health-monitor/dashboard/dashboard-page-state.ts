@@ -62,7 +62,6 @@ export function createDashboardPageState() {
     mineAiLoading: false,
     mineAiDialogVisible: false,
     charts: markRaw({}),
-    _envChart: null,
     _chartRetryCounts: markRaw({}),
     _chartRetryToken: 0,
     metricList: [
@@ -72,7 +71,7 @@ export function createDashboardPageState() {
       { key: 'temperature', label: '体温', color: '#00c8c8', icon: 'Sunny' },
       { key: 'pressure', label: '压力', color: '#3eb7ff', icon: 'MagicStick' }
     ],
-    activePeriod: 'month',
+    activePeriod: 'day',
     periodOptions: [
       { label: '当日', value: 'day' },
       { label: '近7日', value: 'week' },
@@ -111,7 +110,9 @@ export function createDashboardPageState() {
     kpiTodayWarnings: 0,
     kpiYesterdayWarnings: 0,
     kpiUnhandledHigh: 0,
-    kpiUnhandledMid: 0,
+    kpiCriticalTotal: 0,
+    kpiMidTotal: 0,
+    kpiLowTotal: 0,
     commandSummary: null,
     VITAL_NORMAL_RANGES: {
       heartRate: { max: 15 },
@@ -121,6 +122,9 @@ export function createDashboardPageState() {
     },
     trendDailyData: [],
     warningDistData: { labels: [], counts: [] },
+    warningTrend7dData: [],
+    departmentDrawerVisible: false,
+    currentDepartment: null,
     preShiftData: { totalToday: null, qualifiedCount: null, failedCount: null, preShiftRate: null }
   }
 }

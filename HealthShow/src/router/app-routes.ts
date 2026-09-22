@@ -4,22 +4,18 @@ import Layout from './layout-component.ts'
 
 export const appRoutes = [
   {
+    // 安全指挥中心已并入统一管控（GIS 地图、预警趋势/类型分布图表、部门事件抽屉均已迁移过去）；历史入口只做隐藏重定向
     path: '/safety-command',
     component: Layout,
     name: 'SafetyCommand',
-    redirect: '/safety-command/index',
-    meta: { title: '安全指挥中心', icon: 'Aim', breadcrumb: false },
+    hidden: true,
+    redirect: to => ({ path: '/health-monitor/dashboard', query: to.query }),
     children: [
       {
         path: 'index',
         name: 'SafetyCommandIndex',
-        component: () => import('@/views/safety-command/index.vue'),
-        meta: {
-          title: '安全指挥中心',
-          icon: 'Aim',
-          navGroup: 'command',
-          navOrder: 11
-        }
+        hidden: true,
+        redirect: to => ({ path: '/health-monitor/dashboard', query: to.query })
       }
     ]
   },
@@ -32,14 +28,15 @@ export const appRoutes = [
     path: '/admin',
     component: Layout,
     name: 'Admin',
-    meta: { title: '后台管理', icon: 'Setting' },
+    redirect: 'noRedirect',
+    meta: { title: '系统管理', icon: 'Setting' },
     children: [
       {
         path: 'device-list',
         name: 'DeviceList',
         component: () => import('@/views/device-management/index.vue'),
         meta: {
-          title: '设备列表',
+          title: '设备管理',
           icon: 'Monitor',
           permCode: 'device:list',
           navGroup: 'admin',
@@ -51,7 +48,7 @@ export const appRoutes = [
         name: 'UserList',
         component: () => import('@/views/user-list/index.vue'),
         meta: {
-          title: '用户列表',
+          title: '用户管理',
           icon: 'UserFilled',
           permCode: 'user:list',
           navGroup: 'admin',
@@ -100,7 +97,7 @@ export const appRoutes = [
   {
     path: '/ai-chat',
     component: Layout,
-    meta: { title: 'AI健康助手' },
+    meta: { title: 'AI健康助手', breadcrumb: false },
     children: [
       {
         path: 'index',
@@ -128,7 +125,7 @@ export const appRoutes = [
   },
   {
     path: '/warning-center',
-    redirect: '/alert-management/notifications',
+    redirect: '/health-monitor/risk-warning',
     hidden: true
   },
   {

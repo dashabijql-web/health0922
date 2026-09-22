@@ -27,3 +27,7 @@ perf.log
 # IDE
 .idea/
 *.iml
+
+# Database backups (large binary, may contain real health data — never commit)
+tools/db-backups/
+*.bak

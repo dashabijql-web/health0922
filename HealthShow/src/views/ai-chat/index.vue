@@ -3,7 +3,7 @@
     <header class="ac-hd">
       <div class="ac-hd-left">
         <span class="ac-live-dot" :class="{ 'is-active': loading, 'is-idle': !loading && messages.length === 0 }"></span>
-        <h1 class="ac-hd-title">AI 健康助手</h1>
+        <h1 class="ac-hd-title">AI健康助手</h1>
       </div>
       <div class="ac-hd-kpis">
         <div class="ac-kpi">

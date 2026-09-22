@@ -2,19 +2,20 @@ import * as echarts from '@/utils/echarts-setup-radar'
 import { markRaw } from 'vue'
 import {
   buildDeptDetailChartOption,
-  buildEnvHealthChartOption,
+  buildDeptPersonChartOption,
   buildGaugeChartOption,
   buildHourDistChartOption,
   buildUnifiedTrendChartOption,
-  buildWarnTypeChartOption
+  buildWarnTypeChartOption,
+  emptyChartOption
 } from './dashboard-chart-options'
 import {
   buildDashboardDateRange,
-  buildDashboardEnvSeries,
   fetchDashboardDeptDetailData,
   fetchDashboardMetricDetailData,
   fetchDashboardTrendDailyData,
   fetchDashboardWarningDistData,
+  fetchDashboardWarningTrend7dData,
   fetchDashboardWarningTypesData,
   resolveDashboardWarningDistDate,
   resolveDashboardWarningDistSeries
@@ -67,14 +68,6 @@ export const dashboardChartMethods: LegacyVueOptions = {
     this.initGauge('warningRateChart', this.deviceStats.warningRate || 0, '#ff3b3b', '#00e676')
   },
 
-  initEnvHealthChart() {
-    const el = this.getReadyChartDom(this.$refs.envChartRef, this.initEnvHealthChart)
-    if (!el) return
-    const chart = bindDashboardChart(this.charts, 'env', el, 'dark')
-    this._envChart = chart
-    chart.setOption(buildEnvHealthChartOption(buildDashboardEnvSeries()), true)
-  },
-
   async fetchTrendDaily(force = false) {
     this.trendDailyData = await fetchDashboardTrendDailyData(this.activePeriod, force)
   },
@@ -87,6 +80,35 @@ export const dashboardChartMethods: LegacyVueOptions = {
     this.warningTypesData = await fetchDashboardWarningTypesData(this.periodRange)
   },
 
+  async fetchWarningTrend7d() {
+    this.warningTrend7dData = await fetchDashboardWarningTrend7dData()
+  },
+
+  initWarningTrend7dChart() {
+    const dom = this.getReadyChartDom('warningTrend7dChart', this.initWarningTrend7dChart)
+    if (!dom) return
+    const chart = bindDashboardChart(this.charts, 'warningTrend7d', dom)
+    const rows = this.warningTrend7dData || []
+    if (!rows.length) {
+      chart.setOption(emptyChartOption('暂无预警趋势数据'), true)
+      return
+    }
+    chart.setOption(buildDeptPersonChartOption({
+      days: rows.map((r) => r.date),
+      series: [{
+        name: '预警总数',
+        type: 'line',
+        smooth: true,
+        data: rows.map((r) => r.count || r.cnt || 0),
+        lineStyle: { width: 2, color: '#ff8c00' },
+        itemStyle: { color: '#ff8c00' },
+        symbol: 'circle',
+        symbolSize: 5,
+        areaStyle: { color: 'rgba(255,140,0,.12)' }
+      }]
+    }), true)
+  },
+
   initUnifiedTrendChart() {
     const dom = this.getReadyChartDom(this.$refs.unifiedTrendChart, this.initUnifiedTrendChart)
     if (!dom) return
@@ -95,7 +117,6 @@ export const dashboardChartMethods: LegacyVueOptions = {
     const rawData = this.trendDailyData
     chart.setOption(buildUnifiedTrendChartOption({
       rawData,
-      vitalRanges: this.VITAL_NORMAL_RANGES,
       emptyMessage: this.activePeriod === 'day'
         ? (this.dashboardDataState === 'ready' ? '今日暂无汇总' : '今日汇总待刷新')
         : '暂无数据'

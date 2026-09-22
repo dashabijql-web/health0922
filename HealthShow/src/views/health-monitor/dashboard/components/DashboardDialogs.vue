@@ -221,6 +221,29 @@
     <div v-loading="warnCurveModal.loading" ref="warnCurveChartRef" style="width:100%;height:360px;margin-top:12px"></div>
     <div v-if="!warnCurveModal.loading && !warnCurveModal.hasData" style="text-align:center;color:#4a6080;padding:60px 0;font-size:13px">该时段暂无健康记录数据</div>
   </el-dialog>
+
+  <el-dialog
+    v-model="mineAiDialog.visible"
+    title="全矿 AI 健康研判"
+    width="720px"
+    :append-to-body="true"
+    class="dm-warn-curve-dialog dm-mine-ai-dialog"
+  >
+    <template #header>
+      <div class="dm-mine-ai-header">
+        <span>全矿 AI 健康研判</span>
+        <span v-if="mineAiDialog.time" class="dm-mine-ai-time">生成于 {{ mineAiDialog.time }}</span>
+      </div>
+    </template>
+    <div v-loading="mineAiDialog.loading" class="dm-mine-ai-body">
+      <div v-if="mineAiDialog.rendered" class="dm-mine-ai-content" v-html="mineAiDialog.rendered"></div>
+      <div v-else style="text-align:center;color:#4a6080;padding:40px 0;font-size:13px">暂无分析结果</div>
+    </div>
+    <template #footer>
+      <el-button @click="mineAiDialog.visible = false">关闭</el-button>
+      <el-button type="primary" :loading="mineAiDialog.loading" @click="regenerateMineAi">重新生成</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -317,6 +340,13 @@ interface WarnCurveModalState {
   chart: DisposableChart | null
 }
 
+interface MineAiDialogState {
+  visible: boolean
+  loading: boolean
+  rendered: string
+  time: string
+}
+
 type ChartLoader = (element: HTMLElement | null) => void | Promise<void>
 
 const props = defineProps({
@@ -333,7 +363,9 @@ const props = defineProps({
   submitHandle: { type: Function as PropType<() => void | Promise<void>>, required: true },
   trendBlockTitle: { type: String, required: true },
   warnCurveModal: { type: Object as PropType<WarnCurveModalState>, required: true },
-  empDrawer: { type: Object as PropType<EmployeeDrawerState>, required: true }
+  empDrawer: { type: Object as PropType<EmployeeDrawerState>, required: true },
+  mineAiDialog: { type: Object as PropType<MineAiDialogState>, required: true },
+  regenerateMineAi: { type: Function as PropType<() => void | Promise<void>>, required: true }
 })
 
 const deptPersonChartRef = ref<HTMLElement | null>(null)
@@ -455,9 +487,43 @@ function handleWarnCurveOpened() {
   color: #587690;
 }
 
+.dm-mine-ai-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  color: #e8f4ff;
+  font-weight: 700;
+}
+
+.dm-mine-ai-time {
+  color: #7696b2;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.dm-mine-ai-body {
+  min-height: 120px;
+}
+
+.dm-mine-ai-content {
+  color: #cfe3f5;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.dm-mine-ai-content h4 {
+  color: #00d4ff;
+  margin: 14px 0 8px;
+}
+
 @media (max-width: 820px) {
   .dm-warn-curve-dialog.el-dialog {
     width: calc(100% - 24px);
+  }
+
+  .dm-mine-ai-dialog.el-dialog {
+    width: min(720px, calc(100% - 24px));
   }
 
   .dm-handle-dialog.el-dialog {

@@ -10,8 +10,10 @@ export default {
         { label: '心率预警', value: 0, color: '#ef4444' },
         { label: '血氧预警', value: 0, color: '#f97316' },
         { label: '体温预警', value: 0, color: '#22c55e' },
-        { label: '压力预警', value: 0, color: '#00d4ff' }
+        { label: '压力预警', value: 0, color: '#00d4ff' },
+        { label: '设备报警', value: 0, color: '#a855f7' }
       ],
+      periodWarningTotal: 0,
       warningList: [],
       totalWarnings: 0,
       warningTypeOptions: DEFAULT_WARNING_TYPES,
@@ -20,9 +22,9 @@ export default {
       filterName: '',
       filterLevel: '',
       filterType: '',
-      trendData: { dates: [], series: { heartRate: [], bloodOxygen: [], temperature: [], pressure: [] } },
+      trendData: { dates: [], series: { heartRate: [], bloodOxygen: [], temperature: [], pressure: [], deviceAlarm: [] } },
       deptData: [],
-      activePeriod: 'month',
+      activePeriod: 'day',
       periodOptions: PERIOD_OPTIONS,
       charts: {},
       detailVisible: false, detailRow: null,

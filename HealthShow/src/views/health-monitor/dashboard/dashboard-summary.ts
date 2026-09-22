@@ -15,7 +15,7 @@ export function buildDashboardAiSummary({
 
   const parts: string[] = []
   if (kpiUnhandledHigh > 0) parts.push(`当前有 ${kpiUnhandledHigh} 条高危预警待处理`)
-  if ((preShiftData?.failedCount || 0) > 0) parts.push(`${preShiftData.failedCount} 人未通过班前准入`)
+  if ((preShiftData?.failedCount || 0) > 0) parts.push(`${preShiftData.failedCount} 人未通过入井健康准入`)
   if (riskDeptList?.[0]) parts.push(`${riskDeptList[0].name} 为当前重点关注部门`)
   if (latestDangerEvent?.userName) parts.push(`${latestDangerEvent.userName} 是最新重点关注人员`)
   return parts.length

@@ -5,7 +5,7 @@
     <header class="rw-hd">
       <div class="rw-hd-left">
         <span class="rw-live-dot"></span>
-        <h1 class="rw-hd-title">健康风险预警</h1>
+        <h1 class="rw-hd-title">总览</h1>
       </div>
       <div class="rw-hd-kpis">
         <div class="rw-kpi" v-for="k in headerKpis" :key="k.key">
@@ -69,6 +69,7 @@
               <span class="rw-tag" style="color:#f97316;border-color:rgba(249,115,22,0.3)">── 血氧</span>
               <span class="rw-tag" style="color:#22c55e;border-color:rgba(34,197,94,0.3)">── 体温</span>
               <span class="rw-tag" style="color:#00d4ff;border-color:rgba(0,212,255,0.3)">── 压力</span>
+              <span class="rw-tag" style="color:#a855f7;border-color:rgba(168,85,247,0.3)">── 设备报警</span>
             </div>
           </div>
           <div class="rw-pc">

@@ -22,6 +22,8 @@ public class CommandCenterDashboardSummaryService {
 
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final long SUMMARY_TTL_MS = 15_000L;
+    /** 待处理预警按“何时产生”不该有截止日期，但查询要跨月表 UNION，用滚动窗口控制成本。 */
+    private static final long PENDING_LOOKBACK_DAYS = 90L;
 
     private final LocalTtlCache<CommandCenterDashboardSummaryView> summaryCache = new LocalTtlCache<>();
     private final RiskWarningService riskWarningService;
@@ -46,14 +48,20 @@ public class CommandCenterDashboardSummaryService {
             default -> 1;
         };
         String periodStartAt = today.minusDays(periodDays - 1L).atStartOfDay().format(DATE_TIME);
+        String pendingStartAt = today.minusDays(PENDING_LOOKBACK_DAYS - 1L).atStartOfDay().format(DATE_TIME);
 
         int todayNew = countWarnings(null, null, startAt, endAt);
         int periodNew = periodDays == 1
                 ? todayNew
                 : countWarnings(null, null, periodStartAt, endAt);
-        int pendingTotal = countWarnings(null, false, startAt, endAt);
-        int criticalPending = countWarnings("高危", false, startAt, endAt);
-        Map<String, Object> workflow = incidentMapper.getOpenWorkflowSummary(startAt, endAt);
+        // 高中低危是预警本身的分类，不看处理状态，跟 periodNew 用同一个窗口，三者之和必然等于 periodNew。
+        int criticalTotal = countWarnings("高危", null, periodStartAt, endAt);
+        int midTotal = countWarnings("中危", null, periodStartAt, endAt);
+        int lowTotal = countWarnings("低危", null, periodStartAt, endAt);
+        // 待处理是工作流状态，跟产生日期无关，用独立的滚动窗口，不随 period 切换器变化。
+        int pendingTotal = countWarnings(null, false, pendingStartAt, endAt);
+        int criticalPending = countWarnings("高危", false, pendingStartAt, endAt);
+        Map<String, Object> workflow = incidentMapper.getOpenWorkflowSummary(pendingStartAt, endAt);
         int assignedOpen = intValue(workflow == null ? null : workflow.get("assignedOpen"));
         int overdueOpen = intValue(workflow == null ? null : workflow.get("overdueOpen"));
 
@@ -66,6 +74,9 @@ public class CommandCenterDashboardSummaryService {
                         todayNew,
                         periodNew,
                         period,
+                        criticalTotal,
+                        midTotal,
+                        lowTotal,
                         criticalPending,
                         pendingTotal,
                         Math.max(0, pendingTotal - assignedOpen),

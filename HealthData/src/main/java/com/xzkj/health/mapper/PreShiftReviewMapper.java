@@ -88,44 +88,4 @@ public interface PreShiftReviewMapper {
             """)
     List<PreShiftReviewRow> getTodayReviews(@Param("status") String status);
 
-    @Select("""
-            SELECT review_date AS review_date,
-                   emp_code AS emp_code,
-                   source_record_time AS source_record_time,
-                   review_deadline AS review_deadline,
-                   review_status AS review_status,
-                   review_result AS review_result,
-                   review_owner AS review_owner,
-                   reviewed_at AS reviewed_at,
-                   CAST(CASE WHEN review_status IN ('PENDING', 'IN_REVIEW')
-                                  AND review_deadline < SYSDATETIME() THEN 1 ELSE 0 END AS BIT) AS overdue,
-                   remark
-            FROM dbo.pre_shift_review
-            WHERE review_date = CONVERT(date, #{reviewDate})
-              AND emp_code = #{empCode}
-            """)
-    PreShiftReviewRow getReview(@Param("reviewDate") String reviewDate, @Param("empCode") String empCode);
-
-    @Update("""
-            UPDATE dbo.pre_shift_review
-            SET review_status = #{status},
-                review_result = #{result},
-                review_owner = #{operator},
-                reviewed_at = CASE WHEN #{completed} = 1 THEN SYSDATETIME() ELSE NULL END,
-                remark = #{remark},
-                updated_at = SYSDATETIME()
-            WHERE review_date = CONVERT(date, #{reviewDate})
-              AND emp_code = #{empCode}
-              AND source_record_time = CONVERT(DATETIME2(3), #{sourceRecordTime})
-              AND review_status <> 'COMPLETED'
-            """)
-    int updateReviewAction(
-            @Param("reviewDate") String reviewDate,
-            @Param("empCode") String empCode,
-            @Param("sourceRecordTime") String sourceRecordTime,
-            @Param("status") String status,
-            @Param("result") String result,
-            @Param("operator") String operator,
-            @Param("remark") String remark,
-            @Param("completed") boolean completed);
 }

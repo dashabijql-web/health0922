@@ -1,7 +1,18 @@
 export const NAV_GROUPS = [
   { key: 'command', title: '指挥中心', icon: 'HomeFilled', order: 1, path: '/__nav__/command' },
   { key: 'monitor', title: '监测中心', icon: 'DataAnalysis', order: 2, path: '/__nav__/monitor' },
-  { key: 'warning', title: '预警中心', icon: 'Bell', order: 3, path: '/__nav__/warning' },
+  {
+    // 风险事件中心的具体页面已经通过 WarningCenterNav 提供统一切换入口，
+    // 不再作为独立一级菜单展示，而是并入指挥中心子菜单，默认打开“总览”。
+    key: 'warning',
+    title: '风险事件中心',
+    icon: 'Bell',
+    order: 3,
+    path: '/__nav__/warning',
+    singleEntry: true,
+    parentGroup: 'command',
+    preferredPaths: ['/health-monitor/risk-warning', '/alert-management/notifications']
+  },
   { key: 'people', title: '人员中心', icon: 'UserFilled', order: 4, path: '/__nav__/people' },
   { key: 'report', title: '报告与AI', icon: 'Document', order: 5, path: '/__nav__/report' },
   { key: 'admin', title: '系统管理', icon: 'Setting', order: 6, path: '/__nav__/admin' }
@@ -13,7 +24,7 @@ export const MOBILE_NAV_SLOTS = [
     icon: 'DataAnalysis',
     label: '指挥',
     groups: ['command'],
-    preferredPaths: ['/health-monitor/dashboard', '/safety-command/index']
+    preferredPaths: ['/health-monitor/dashboard']
   },
   {
     key: 'monitor',
@@ -34,7 +45,7 @@ export const MOBILE_NAV_SLOTS = [
     icon: 'Bell',
     label: '预警',
     groups: ['warning'],
-    preferredPaths: ['/alert-management/notifications', '/health-monitor/risk-warning']
+    preferredPaths: ['/health-monitor/risk-warning', '/alert-management/notifications']
   },
   {
     key: 'people',
@@ -88,20 +99,59 @@ function collectLeafRoutes(routes: NavigationRoute[] = [], basePath = ''): Navig
   return leaves
 }
 
+function leavesOfGroup(leaves: NavigationRoute[], key: string) {
+  return leaves
+    .filter((route) => route.meta?.navGroup === key)
+    .sort((a, b) => (a.meta?.navOrder || 999) - (b.meta?.navOrder || 999))
+    .map((route) => ({
+      ...route,
+      path: route.path.startsWith('/') ? route.path : `/${route.path}`
+    }))
+}
+
+// 把一个 singleEntry 分组折叠成一个可直接点击的子菜单项，
+// 默认跳转到该分组的首选页面（例如风险事件中心的“总览”）。
+function buildSingleEntryChild(group: (typeof NAV_GROUPS)[number], children: NavigationRoute[]) {
+  if (!children.length) return null
+
+  const defaultPath = group.preferredPaths?.find((path) =>
+    children.some((child) => child.path === path)
+  ) || children[0].path
+
+  return {
+    path: defaultPath,
+    name: `NavGroup${group.key}`,
+    meta: {
+      title: group.title,
+      icon: group.icon
+    }
+  }
+}
+
 export function buildGroupedMenuRoutes(routes: NavigationRoute[]) {
   const leaves = collectLeafRoutes(routes)
+  const nestedGroups = NAV_GROUPS.filter((group) => group.parentGroup)
 
   return NAV_GROUPS
-    .map((group) => {
-      const children = leaves
-        .filter((route) => route.meta?.navGroup === group.key)
-        .sort((a, b) => (a.meta?.navOrder || 999) - (b.meta?.navOrder || 999))
-        .map((route) => ({
-          ...route,
-          path: route.path.startsWith('/') ? route.path : `/${route.path}`
-        }))
+    .filter((group) => !group.parentGroup)
+    .flatMap((group) => {
+      const children = leavesOfGroup(leaves, group.key)
 
-      return {
+      const nestedChildren = nestedGroups
+        .filter((nested) => nested.parentGroup === group.key)
+        .map((nested) => buildSingleEntryChild(nested, leavesOfGroup(leaves, nested.key)))
+        .filter((child): child is NonNullable<typeof child> => Boolean(child))
+
+      const allChildren = [...children, ...nestedChildren]
+
+      if (!allChildren.length) return []
+
+      if (group.singleEntry) {
+        const entry = buildSingleEntryChild(group, allChildren)
+        return entry ? [entry] : []
+      }
+
+      return [{
         path: group.path,
         name: `NavGroup${group.key}`,
         alwaysShow: true,
@@ -109,10 +159,9 @@ export function buildGroupedMenuRoutes(routes: NavigationRoute[]) {
           title: group.title,
           icon: group.icon
         },
-        children
-      }
+        children: allChildren
+      }]
     })
-    .filter((group) => group.children.length > 0)
 }
 
 export function buildMobileNavItems(routes: NavigationRoute[]) {

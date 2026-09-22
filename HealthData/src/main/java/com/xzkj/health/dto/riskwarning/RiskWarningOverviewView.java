@@ -6,6 +6,7 @@ public record RiskWarningOverviewView(
         int bloodOxygenCount,
         int temperatureCount,
         int pressureCount,
+        int deviceAlarmCount,
         int totalWarnings,
         int handledWarnings,
         int pendingWarnings,

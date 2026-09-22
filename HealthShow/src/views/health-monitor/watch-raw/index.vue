@@ -4,7 +4,7 @@
       <div class="wr-title-block">
         <span :class="['wr-live-dot', autoRefresh ? 'is-on' : '']"></span>
         <div>
-          <h1 class="wr-title">手表原始数据</h1>
+          <h1 class="wr-title">设备原始报文</h1>
           <p class="wr-subtitle">展示 TCP 收到与发出的手表原始报文，按时间倒序保留最近 {{ capacity }} 条</p>
         </div>
       </div>
@@ -281,7 +281,7 @@ async function fetchPackets() {
     capacity.value = data.capacity || 1000
     lastRefreshTime.value = formatTime(new Date())
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '读取手表原始数据失败')
+    ElMessage.error(error instanceof Error ? error.message : '读取设备原始报文失败')
   } finally {
     loading.value = false
   }

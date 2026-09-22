@@ -89,7 +89,7 @@ public interface DashboardService {
     List<DeptDailyPersonView> getDeptDailyPersons(String startTime, String endTime);
 
     /**
-     * 获取过去 N 天每日各指标异常率
+     * 获取过去 N 天每日各指标异常次数（同时返回兼容报表使用的异常率）
      */
     List<DailyAnomalyRateView> getDailyAnomalyRates(int days);
 

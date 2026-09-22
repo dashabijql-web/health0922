@@ -48,7 +48,7 @@ function buildChatExportHtml(messages, parser, now) {
   @media print { body { padding: 0; } }
 </style>
 </head><body>
-<h1>AI 健康助手 · 对话记录</h1>
+<h1>AI健康助手 · 对话记录</h1>
 <div class="meta">导出时间：${now}　共 ${messages.filter(msg => msg.role === 'user').length} 轮对话</div>
 ${rows}
 </body></html>`

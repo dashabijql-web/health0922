@@ -47,7 +47,6 @@ let animationFrame = 0
 let dragging = false
 let lastPointerX = 0
 let particleVelocity = new Float32Array(0)
-const orbitRings: THREE.Mesh[] = []
 
 const statusTone = computed(() => {
   if (props.freshnessStatus === 'fresh') return 'normal'
@@ -105,7 +104,6 @@ function initScene() {
   scene.add(fill)
 
   addPlatform()
-  addOrbitRings()
   addParticleField()
   addScanLine()
   loadModel()
@@ -135,32 +133,6 @@ function addPlatform() {
     ring.rotation.x = Math.PI / 2
     ring.position.y = 0.085 + index * 0.018
     group.add(ring)
-  })
-}
-
-function addOrbitRings() {
-  if (!scene) return
-  const isImm = props.variant === 'immersive'
-  const ringDefs = isImm
-    ? [
-        { radius: 1.62, y: 1.25, tilt: 0.08, color: 0x1c94c9, opacity: 0.44 },
-        { radius: 1.32, y: 1.65, tilt: -0.28, color: 0x4bd7ef, opacity: 0.32 },
-        { radius: 1.05, y: 0.85, tilt: 0.24, color: 0x55d6b7, opacity: 0.28 },
-      ]
-    : [
-        { radius: 1.32, y: 1.52, tilt: 0.08, color: 0x1c94c9, opacity: 0.42 },
-        { radius: 1.08, y: 2.12, tilt: -0.28, color: 0x4bd7ef, opacity: 0.28 },
-        { radius: 0.88, y: 1.04, tilt: 0.24, color: 0x55d6b7, opacity: 0.24 },
-      ]
-  ringDefs.forEach((item) => {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(item.radius, isImm ? 0.014 : 0.012, 8, 96),
-      new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: item.opacity }),
-    )
-    ring.rotation.x = Math.PI / 2 + item.tilt
-    ring.position.y = item.y
-    scene!.add(ring)
-    orbitRings.push(ring)
   })
 }
 
@@ -296,9 +268,6 @@ function animate() {
     const material = scanLine.material as THREE.MeshBasicMaterial
     material.opacity = quiet ? 0.16 : (isImm ? 0.40 : 0.28) + Math.sin(time * 0.55) * 0.06
   }
-  orbitRings.forEach((ring, index) => {
-    ring.rotation.z += (quiet ? 0.0006 : 0.0022) * (index % 2 ? -1 : 1)
-  })
   if (renderer && scene && camera) renderer.render(scene, camera)
 }
 
@@ -314,11 +283,14 @@ function resizeScene() {
 
   if (props.variant === 'immersive') {
     // 沉浸模式：全身完整入画（头、手、脚均清晰完整呈现，头顶绝不裁切）
-    // 头顶到顶栏留出安全留白，脚部到底部走势条留出呼吸空间
-    // 垂直视锥高 2.85，中心 y: 1.18，让 2.22 高度人体与旋转底盘完整优雅呈现
-    const verticalDistance = 2.85 / (2 * Math.tan(fov))
-    camera.position.set(0.12, 1.18, verticalDistance)
-    camera.lookAt(0.12, 1.18, 0)
+    // 底部走势条已移除，舞台下方不再需要为其预留空间，收紧视锥让人体占屏更大
+    // 垂直视锥高 2.5，中心 y: 1.2，让 2.22 高度人体与旋转底盘更饱满地呈现
+    const verticalDistance = 2.5 / (2 * Math.tan(fov))
+    // 人体向右平移，为左侧留出完整空白区域承载预警列表浮层；平移量按视锥水平半宽的比例换算，随宽高比自适应
+    const horizontalHalfExtent = 1.25 * aspect
+    const rightShift = horizontalHalfExtent * 0.32
+    camera.position.set(0.12 - rightShift, 1.2, verticalDistance)
+    camera.lookAt(0.12 - rightShift, 1.2, 0)
   } else {
     const verticalDistance = 3.42 / (2 * Math.tan(fov))
     const horizontalDistance = 3.82 / (2 * Math.tan(fov) * Math.max(aspect, 0.1))
@@ -516,12 +488,12 @@ onBeforeUnmount(() => {
 }
 
 .portrait-hologram.is-immersive .hologram-label--heart {
-  left: 20%;
+  left: 46%;
   top: 24%;
 }
 
 .portrait-hologram.is-immersive .hologram-label--bp {
-  left: 20%;
+  left: 46%;
   top: 56%;
 }
 
@@ -537,7 +509,7 @@ onBeforeUnmount(() => {
 
 .portrait-hologram.is-immersive .hologram-label--stress {
   right: 8%;
-  top: 70%;
+  top: 58%;
 }
 
 @media (max-width: 860px) {

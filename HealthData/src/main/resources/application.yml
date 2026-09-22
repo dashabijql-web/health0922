@@ -75,8 +75,8 @@ health:
     slow-query-threshold-ms: ${HEALTH_SLOW_QUERY_THRESHOLD_MS:500}
     slow-query-log-ms: ${HEALTH_SLOW_QUERY_LOG_MS:3000}
   realtime:
-    online-window-minutes: ${HEALTH_REALTIME_ONLINE_WINDOW_MINUTES:15}
-    freshness-minutes: ${HEALTH_REALTIME_FRESHNESS_MINUTES:5}
+    online-window-minutes: ${HEALTH_REALTIME_ONLINE_WINDOW_MINUTES:20}
+    freshness-minutes: ${HEALTH_REALTIME_FRESHNESS_MINUTES:12}
   command-center:
     pre-shift-review-minutes: ${HEALTH_PRE_SHIFT_REVIEW_MINUTES:30}
     device-data-interrupted-minutes: ${HEALTH_DEVICE_DATA_INTERRUPTED_MINUTES:15}

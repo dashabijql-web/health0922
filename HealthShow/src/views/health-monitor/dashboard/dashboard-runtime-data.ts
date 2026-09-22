@@ -114,8 +114,16 @@ export function collectDashboardNewDangerEvents(warningEvents, seenAlertIds) {
 export function buildDashboardUnhandledStats(warningEvents) {
   const unhandled = (warningEvents || []).filter((event) => !event.handled)
   return {
-    kpiUnhandledHigh: unhandled.filter((event) => event.level === 'danger').length,
-    kpiUnhandledMid: unhandled.filter((event) => event.level === 'warn').length
+    kpiUnhandledHigh: unhandled.filter((event) => event.level === 'danger').length
+  }
+}
+
+export function buildDashboardLevelTotals(warningEvents) {
+  const events = warningEvents || []
+  return {
+    kpiCriticalTotal: events.filter((event) => event.level === 'danger').length,
+    kpiMidTotal: events.filter((event) => event.level === 'warn').length,
+    kpiLowTotal: events.filter((event) => event.level === 'info').length
   }
 }
 
@@ -135,7 +143,8 @@ export async function fetchDashboardKpiSnapshot(warningEvents, totalFallback = 0
     kpiRealtimeTotal: _cache.kpiTotal || 0,
     kpiTodayWarnings: _cache.kpiTodayWarnings || 0,
     kpiYesterdayWarnings: _cache.kpiYesterdayWarnings || 0,
-    ...buildDashboardUnhandledStats(warningEvents)
+    ...buildDashboardUnhandledStats(warningEvents),
+    ...buildDashboardLevelTotals(warningEvents)
   }
 }
 

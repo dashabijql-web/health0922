@@ -7,6 +7,7 @@ public record RiskWarningTrendSeriesView(
         List<Integer> bloodOxygen,
         List<Integer> sleep,
         List<Integer> temperature,
-        List<Integer> pressure
+        List<Integer> pressure,
+        List<Integer> deviceAlarm
 ) {
 }

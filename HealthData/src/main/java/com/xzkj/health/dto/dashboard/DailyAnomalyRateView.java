@@ -5,6 +5,10 @@ public record DailyAnomalyRateView(
         double heartRateRate,
         double bloodOxygenRate,
         double temperatureRate,
-        double pressureRate
+        double pressureRate,
+        int heartRateCount,
+        int bloodOxygenCount,
+        int temperatureCount,
+        int pressureCount
 ) {
 }

@@ -3,17 +3,19 @@ import Layout from './layout-component.ts'
 export default {
   path: '/alert-management',
   component: Layout,
+  redirect: '/health-monitor/risk-warning',
   name: 'AlertManagement',
-  meta: { title: '预警管理', icon: 'Bell' },
+  meta: { title: '风险事件中心', icon: 'Bell' },
   children: [
     {
       path: 'notifications',
       name: 'NotificationCenter',
-      component: () => import('@/views/alert-management/notifications/index.vue'),
+      redirect: () => ({ path: '/alert-management/records', query: { handleStatus: 'unhandled' } }),
       meta: {
         title: '待办事件',
         icon: 'Bell',
         permCode: 'alert:notifications',
+        activeMenu: '/health-monitor/risk-warning',
         navGroup: 'warning',
         navOrder: 12
       }
@@ -23,9 +25,10 @@ export default {
       name: 'SosPage',
       component: () => import('@/views/alert-management/sos/index.vue'),
       meta: {
-        title: '紧急事件',
+        title: '设备紧急事件',
         icon: 'Warning',
         permCode: 'alert:sos',
+        activeMenu: '/health-monitor/risk-warning',
         navGroup: 'warning',
         navOrder: 15
       }
@@ -38,6 +41,7 @@ export default {
         title: '规则配置',
         icon: 'Setting',
         permCode: 'alert:config',
+        activeMenu: '/health-monitor/risk-warning',
         navGroup: 'warning',
         navOrder: 14
       }
@@ -50,6 +54,7 @@ export default {
         title: '处置记录',
         icon: 'List',
         permCode: 'alert:records',
+        activeMenu: '/health-monitor/risk-warning',
         navGroup: 'warning',
         navOrder: 13
       }

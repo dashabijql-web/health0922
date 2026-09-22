@@ -30,11 +30,11 @@ public class HealthPortraitService {
     private final HealthPortraitMapper healthPortraitMapper;
     private final HealthAsyncQueryExecutor asyncQueryExecutor;
 
-    @Value("${health.realtime.online-window-minutes:15}")
-    private int onlineWindowMinutes = 15;
+    @Value("${health.realtime.online-window-minutes:20}")
+    private int onlineWindowMinutes = 20;
 
-    @Value("${health.realtime.freshness-minutes:5}")
-    private int freshnessMinutes = 5;
+    @Value("${health.realtime.freshness-minutes:12}")
+    private int freshnessMinutes = 12;
 
     public HealthPortraitService(HealthPortraitMapper healthPortraitMapper,
                                  HealthAsyncQueryExecutor asyncQueryExecutor) {

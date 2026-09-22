@@ -176,7 +176,7 @@ export function buildReportOverviewCards({
       {
         label: '使用建议',
         value: '先看排行',
-        sub: '先锁定高风险部门，再回人员画像与预警中心复核',
+        sub: '先锁定高风险部门，再回人员画像与风险事件中心复核',
         tone: 'accent'
       }
     ]
@@ -269,6 +269,6 @@ export function buildReportInsightLines({
     trendData.length
       ? `体温异常率 ${formatDelta(trendData, 'temperatureRate')}，压力异常率 ${formatDelta(trendData, 'pressureRate')}，建议重点关注拐点日期。`
       : '建议补齐每日趋势数据后再做趋势判断。',
-    '趋势页适合发现“连续偏移”，发现问题后建议回到预警中心和人员画像做进一步处置。'
+    '趋势页适合发现”连续偏移”，发现问题后建议回到风险事件中心和人员画像做进一步处置。'
   ]
 }

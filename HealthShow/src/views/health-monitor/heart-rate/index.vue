@@ -14,7 +14,7 @@
           v-for="k in headerKpis"
           :key="k.key"
           type="button"
-          :title="`查看${k.label}明细`"
+          :title="`点击查看${k.label}明细`"
           @click="openHeaderMetric(k.key)"
         >
           <span class="hr-kpi-n" :class="k.cls">{{ k.val }}</span>
@@ -22,23 +22,25 @@
         </button>
       </div>
 
-      <div class="hr-period-tabs">
-        <span class="hr-period-label">统计周期</span>
-        <span v-for="p in periodOptions" :key="p.value"
-          :class="['hr-period-tab', activePeriod === p.value ? 'is-active' : '']"
-          @click="switchPeriod(p.value)">{{ p.label }}</span>
-      </div>
+      <div class="hr-hd-right">
+        <div class="hr-period-tabs">
+          <span class="hr-period-label">周期</span>
+          <span v-for="p in periodOptions" :key="p.value"
+            :class="['hr-period-tab', activePeriod === p.value ? 'is-active' : '']"
+            @click="switchPeriod(p.value)">{{ p.label }}</span>
+        </div>
 
-      <div class="hr-hd-time">{{ currentTime }}</div>
-      <button class="hm-export-btn" @click="exportExcel" title="导出当前周期风险汇总">导出周期</button>
+        <div class="hr-hd-time">{{ currentTime }}</div>
+        <button class="hm-export-btn" @click="exportExcel" title="导出当前周期风险汇总">导出周期</button>
+      </div>
     </header>
 
     <!-- ══ 主体 ══ -->
     <section class="hr-bd" v-loading="pageLoading" element-loading-text="数据加载中..." element-loading-background="rgba(10,20,40,0.7)">
 
-      <!-- ─ 左侧：TOP5(小) + 部门统计(大) ─ -->
+      <!-- ─ 左侧：TOP10 + 部门统计 ─ -->
       <aside class="hr-aside">
-        <!-- TOP5：紧凑列表替代大图表 -->
+        <!-- TOP10 异常频次排行 -->
         <div class="hr-panel hr-aside-top">
           <div class="hr-ph">
             <span class="hr-ph-bar"></span>
@@ -47,19 +49,21 @@
           <div class="hr-top5-list" ref="top5ScrollRef"
                @mouseenter="_top5Paused=true" @mouseleave="_top5Paused=false">
             <div v-if="!top5Data.length" class="hr-top5-empty">暂无异常频次数据</div>
-            <div class="hr-top5-row" v-for="(item, i) in displayedTop5" :key="i" role="button" tabindex="0" @click="openHeartRatePortrait(item)" @keydown.enter="openHeartRatePortrait(item)" style="cursor:pointer">
+            <div class="hr-top5-row" v-for="(item, i) in displayedTop5" :key="i" role="button" tabindex="0"
+                 :title="`${item.userName} · 异常 ${item.count} 次${item.anomalyDays ? ' · ' + item.anomalyDays + '天' : ''}`"
+                 @click="openHeartRatePortrait(item)" @keydown.enter="openHeartRatePortrait(item)">
               <span class="hr-top5-rank" :class="i < 3 ? 'rank-'+(i+1) : 'rank-n'">{{ i+1 }}</span>
-              <span class="hr-top5-name">{{ item.userName }}</span>
+              <span class="hr-top5-name" :title="item.userName">{{ item.userName }}</span>
               <div class="hr-top5-bar-wrap">
                 <div class="hr-top5-bar" :style="{width: (item.count / top5Max * 100) + '%'}"></div>
               </div>
-              <span class="hr-top5-val">{{ item.count }}</span>
+              <span class="hr-top5-val">{{ item.count }}<em class="hr-val-unit">次</em></span>
               <span class="hr-top5-days" v-if="item.anomalyDays">{{ item.anomalyDays }}天</span>
             </div>
           </div>
         </div>
 
-        <!-- 部门统计：占剩余全部空间 -->
+        <!-- 部门统计：占剩余空间 -->
         <div class="hr-panel hr-aside-bot">
           <div class="hr-ph">
             <span class="hr-ph-bar"></span>
@@ -76,17 +80,23 @@
 
         <!-- 周期人员口径 + 4 个互斥风险区间 -->
         <div class="hr-hero">
-          <div class="hr-scope-card" role="button" tabindex="0" title="查看有数据日明细" @click="openScopeDetail" @keydown.enter="openScopeDetail">
+          <div class="hr-scope-card" role="button" tabindex="0" title="点击查看有数据日明细" @click="openScopeDetail" @keydown.enter="openScopeDetail">
             <span class="hr-scope-label">有数据日</span>
             <strong class="hr-scope-value">{{ coverageSummary.days }}<em>天</em></strong>
-            <span class="hr-scope-note">所选周期共 {{ coverageSummary.periodDays }} 天</span>
+            <span class="hr-scope-note">周期共 {{ coverageSummary.periodDays }} 天</span>
             <span class="hr-scope-time">日均覆盖 {{ coverageSummary.avgCovered }} 人</span>
           </div>
           <div class="hr-zone-cards">
-            <div v-for="z in hrZones" :key="z.key" :class="['hr-zone-card', z.cls]" role="button" tabindex="0" :title="`查看${z.label}人员`" @click="openZoneDetail(z)" @keydown.enter="openZoneDetail(z)">
-              <span class="hr-zone-icon" :style="{color: z.color}">{{ z.icon }}</span>
-              <span class="hr-zone-count" :style="{color: z.color}">{{ z.count }}<em>人</em></span>
-              <span class="hr-zone-label">{{ z.label }}</span>
+            <div v-for="z in hrZones" :key="z.key" :class="['hr-zone-card', z.cls]" role="button" tabindex="0" :title="`点击查看${z.label}人员`" @click="openZoneDetail(z)" @keydown.enter="openZoneDetail(z)">
+              <div class="hr-zone-top">
+                <span class="hr-zone-icon-badge" :style="{ color: z.color, borderColor: z.color + '44', background: z.color + '15' }">{{ z.icon }}</span>
+                <span class="hr-zone-label">{{ z.label }}</span>
+                <span class="hr-zone-pct-num" :style="{ color: z.color }">{{ z.pct }}%</span>
+              </div>
+              <div class="hr-zone-main-val">
+                <span class="hr-zone-count" :style="{color: z.color}">{{ z.count }}</span>
+                <em class="hr-zone-unit">人</em>
+              </div>
               <span class="hr-zone-range">{{ z.range }}</span>
               <div class="hr-zone-pct-bar">
                 <div class="hr-zone-pct-fill" :style="{ width: z.pct + '%', background: z.color }"></div>
@@ -103,8 +113,8 @@
               <span class="hr-ph-title">{{ trendTitle }}</span>
               <span class="hr-trend-scope">{{ trendScopeText }}</span>
               <div class="hr-trend-tags">
-                <span class="hr-tag" style="color:#FFB84D;border-color:rgba(255,184,77,0.3)">▰ 异常人数</span>
-                <span class="hr-tag" style="color:#00d4ff;border-color:rgba(0,212,255,0.3)">— 异常率</span>
+                <span class="hr-tag hr-tag-orange">▰ 异常人数</span>
+                <span class="hr-tag hr-tag-cyan">— 异常率</span>
                 <span class="hr-tag hr-tag-muted">按人去重 · 有效覆盖</span>
               </div>
             </div>
@@ -119,44 +129,61 @@
           ref="currentAnomalyPanel"
           :class="['hr-panel', 'hr-panel-anomaly', isDashboardDrilldown && 'is-drilldown-focus']"
         >
-          <div class="hr-ph">
-            <span class="hr-ph-bar"></span>
-            <span class="hr-ph-title">实时心率异常人员</span>
-            <span class="hr-live-scope-badge">独立实时快照</span>
-            <span class="hr-anomaly-scope">{{ anomalyScopeText }}</span>
-            <span class="hr-anomaly-count" v-if="snapshotAnomalyTotal">
-              共 <em>{{ snapshotAnomalyTotal }}</em> 人异常
-            </span>
+          <div class="hr-ph hr-anomaly-ph">
+            <div class="hr-anomaly-ph-left">
+              <span class="hr-ph-bar"></span>
+              <span class="hr-ph-title">实时心率异常人员</span>
+              <span class="hr-live-scope-badge">独立实时快照</span>
+              <span class="hr-anomaly-scope" :title="anomalyScopeText">{{ anomalyScopeText }}</span>
+            </div>
+            <div class="hr-anomaly-ph-right" v-if="snapshotAnomalyTotal">
+              <span class="hr-anomaly-count">
+                当前 <em>{{ snapshotAnomalyTotal }}</em> 人异常
+              </span>
+            </div>
           </div>
           <div v-if="!anomalyList.length" class="hr-anomaly-empty">
-            {{ anomalyEmptyText }}
+            <span class="hr-anomaly-ok-icon">✓</span>
+            <span>{{ anomalyEmptyText }}</span>
           </div>
           <div v-else class="hr-anomaly-body">
-            <div class="hr-anomaly-hd">
-              <span>姓名</span><span>性别/年龄</span><span>部门</span><span>工号</span><span>心率</span><span>状态</span><span>时间</span>
-            </div>
-            <div class="hr-anomaly-list">
-              <div
-                class="hr-anomaly-row"
-                v-for="item in anomalyList"
-                :key="item.userCode"
-                role="button"
-                tabindex="0"
-                :class="item.heartRateState === 'danger' ? 'anom-danger' : 'anom-warning'"
-                @click="showDetail(item)"
-                @keydown.enter="showDetail(item)"
-                style="cursor:pointer"
-              >
-                <span class="ha-name">{{ item.userName }}</span>
-                <span class="ha-gender">
-                  <em :class="item.gender === '男' ? 'g-m' : 'g-f'">{{ item.gender || '--' }}</em>
-                  <i v-if="item.age">{{ item.age }}岁</i>
-                </span>
-                <span class="ha-dept">{{ item.deptName || item.dept_name || '--' }}</span>
-                <span class="ha-job">{{ item.userCode || '--' }}</span>
-                <span class="ha-val">{{ item.heartRate }} bpm</span>
-                <span class="ha-type">{{ item.heartRateState === 'danger' ? '高危' : '异常' }}</span>
-                <span class="ha-time">{{ fmtTime(item.recordTime) }}</span>
+            <div class="hr-anomaly-table-wrap">
+              <div class="hr-anomaly-hd">
+                <span class="col-name">姓名</span>
+                <span class="col-gender">性别/年龄</span>
+                <span class="col-dept">所属部门</span>
+                <span class="col-job">工号</span>
+                <span class="col-val">实时心率</span>
+                <span class="col-type">状态</span>
+                <span class="col-time">采集时间</span>
+              </div>
+              <div class="hr-anomaly-list">
+                <div
+                  class="hr-anomaly-row"
+                  v-for="item in anomalyList"
+                  :key="item.userCode"
+                  role="button"
+                  tabindex="0"
+                  :class="item.heartRateState === 'danger' ? 'anom-danger' : 'anom-warning'"
+                  :title="`点击查看 ${item.userName} 详情`"
+                  @click="showDetail(item)"
+                  @keydown.enter="showDetail(item)"
+                >
+                  <span class="ha-name col-name" :title="item.userName">{{ item.userName }}</span>
+                  <span class="ha-gender col-gender">
+                    <em :class="item.gender === '男' ? 'g-m' : 'g-f'">{{ item.gender || '--' }}</em>
+                    <i v-if="item.age">{{ item.age }}岁</i>
+                  </span>
+                  <span class="ha-dept col-dept" :title="item.deptName || item.dept_name || '--'">{{ item.deptName || item.dept_name || '--' }}</span>
+                  <span class="ha-job col-job" :title="item.userCode || '--'">{{ item.userCode || '--' }}</span>
+                  <span class="ha-val col-val">{{ item.heartRate }} <em class="ha-unit">bpm</em></span>
+                  <span class="ha-type col-type">
+                    <span class="ha-tag" :class="item.heartRateState === 'danger' ? 'tag-danger' : 'tag-warning'">
+                      {{ item.heartRateState === 'danger' ? '高危' : '偏高' }}
+                    </span>
+                  </span>
+                  <span class="ha-time col-time">{{ fmtTime(item.recordTime) }}</span>
+                </div>
               </div>
             </div>
             <el-pagination

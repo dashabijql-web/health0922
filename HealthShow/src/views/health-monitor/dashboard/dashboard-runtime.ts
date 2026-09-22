@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import { getMineAiReport, generateMineAiReport } from '@/api/ai'
 import {
   buildDashboardAbnormalUserCount,
+  buildDashboardLevelTotals,
   buildDashboardUnhandledStats,
   collectDashboardNewDangerEvents,
   fetchDashboardBodyIndicatorData,
@@ -25,7 +26,7 @@ const DASHBOARD_SECTION_LABELS = {
   deviceActivation: '设备状态',
   top5: '风险排名',
   personCounts: '覆盖人数',
-  preShift: '班前准入',
+  preShift: '入井健康准入',
   deptHealthCounts: '部门统计',
   deptPersonStats: '部门人员统计',
   dailyTrend: '趋势数据',
@@ -44,6 +45,7 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
       if (res.code === 200 && res.data) {
         this.mineAiReport = res.data.reportContent
         this.mineAiTime = res.data.generateTime
+        this.mineAiDialogVisible = true
         this.$message.success('全矿 AI 分析完成')
       } else {
         this.$message.error(res.message || '生成失败')
@@ -131,6 +133,9 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
 
       this.applyUnifiedControlSnapshot(snapshot)
       const snapshotState = this.dashboardDataState
+      // Fixed 7-day view, independent of activePeriod — fetch and render on
+      // its own so it doesn't block the rest of the refresh cycle.
+      this.fetchWarningTrend7d().then(() => this.$nextTick(() => this.initWarningTrend7dChart()))
       await this.fetchWarningEvents(requestSeq)
       if (requestSeq !== this._dashboardRequestSeq || activePeriod !== this.activePeriod) return
       // Warning loading must not turn a partial aggregate snapshot into a
@@ -152,7 +157,6 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
         this.initWarnTypeChart()
         this.initUnifiedTrendChart()
         this.initDeptChart()
-        this.initEnvHealthChart()
         this.initDeviceCharts()
       })
     } catch {
@@ -181,7 +185,9 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
     this.kpiTodayWarnings = this.commandSummary?.warning?.periodNew ?? snapshot.kpiTodayWarnings
     this.kpiYesterdayWarnings = snapshot.kpiYesterdayWarnings
     this.kpiUnhandledHigh = this.commandSummary?.warning?.criticalPending ?? snapshot.kpiUnhandledHigh
-    this.kpiUnhandledMid = snapshot.kpiUnhandledMid
+    this.kpiCriticalTotal = this.commandSummary?.warning?.criticalTotal ?? snapshot.kpiCriticalTotal
+    this.kpiMidTotal = this.commandSummary?.warning?.midTotal ?? snapshot.kpiMidTotal
+    this.kpiLowTotal = this.commandSummary?.warning?.lowTotal ?? snapshot.kpiLowTotal
   },
 
   async fetchCommandSummary(this: Record<string, any>, period = this.activePeriod, requestSeq?: number) {
@@ -196,6 +202,9 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
     this.commandSummary = summary
     this.kpiTodayWarnings = summary.warning?.periodNew ?? this.kpiTodayWarnings
     this.kpiUnhandledHigh = summary.warning?.criticalPending ?? this.kpiUnhandledHigh
+    this.kpiCriticalTotal = summary.warning?.criticalTotal ?? this.kpiCriticalTotal
+    this.kpiMidTotal = summary.warning?.midTotal ?? this.kpiMidTotal
+    this.kpiLowTotal = summary.warning?.lowTotal ?? this.kpiLowTotal
     this.preShiftData = {
       ...this.preShiftData,
       qualifiedCount: summary.admission?.passed ?? this.preShiftData.qualifiedCount,
@@ -267,6 +276,9 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
       this.kpiTodayWarnings = 0
       this.kpiYesterdayWarnings = 0
       this.kpiUnhandledHigh = 0
+      this.kpiCriticalTotal = 0
+      this.kpiMidTotal = 0
+      this.kpiLowTotal = 0
     }
     else if (snapshot.commandSummary) this.applyCommandSummary(snapshot.commandSummary)
   },
@@ -326,8 +338,13 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
     this.warningEvents = warningEvents
     this.onDutyStats.abnormal = buildDashboardAbnormalUserCount(this.warningEvents)
     const unhandled = buildDashboardUnhandledStats(this.warningEvents)
-    this.kpiUnhandledMid = unhandled.kpiUnhandledMid
-    if (!this.commandSummary) this.kpiUnhandledHigh = unhandled.kpiUnhandledHigh
+    const levelTotals = buildDashboardLevelTotals(this.warningEvents)
+    if (!this.commandSummary) {
+      this.kpiUnhandledHigh = unhandled.kpiUnhandledHigh
+      this.kpiCriticalTotal = levelTotals.kpiCriticalTotal
+      this.kpiMidTotal = levelTotals.kpiMidTotal
+      this.kpiLowTotal = levelTotals.kpiLowTotal
+    }
     collectDashboardNewDangerEvents(this.warningEvents, this.seenAlertIds).forEach((event) => {
       this.triggerDangerNotification(event)
     })

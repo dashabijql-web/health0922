@@ -5,7 +5,7 @@
     <header class="ps-hd">
       <div class="ps-hd-left">
         <span class="ps-live-dot"></span>
-        <h1 class="ps-hd-title">压力指数分析</h1>
+        <h1 class="ps-hd-title">压力分析</h1>
       </div>
 
       <div class="ps-hd-kpis">

@@ -23,13 +23,11 @@ export function useDashboardPage(): any {
   const dmScale = ref<HTMLElement | null>(null)
   const dmBody = ref<HTMLElement | null>(null)
   const unifiedTrendChart = ref<HTMLElement | null>(null)
-  const envChartRef = ref<HTMLElement | null>(null)
-  const refs = { dmScale: null as HTMLElement | null, dmBody: null as HTMLElement | null, unifiedTrendChart: null as HTMLElement | null, envChartRef: null as HTMLElement | null }
+  const refs = { dmScale: null as HTMLElement | null, dmBody: null as HTMLElement | null, unifiedTrendChart: null as HTMLElement | null }
   const syncRefs = () => {
     refs.dmScale = dmScale.value
     refs.dmBody = dmBody.value
     refs.unifiedTrendChart = unifiedTrendChart.value
-    refs.envChartRef = envChartRef.value
   }
   ctx.$refs = refs
 
@@ -72,14 +70,13 @@ export function useDashboardPage(): any {
     preShiftData: ctx.preShiftData
   }))
   computedValues.admissionQueueItems = computed(() => buildDashboardAdmissionQueueItems({
-    preShiftData: ctx.preShiftData,
-    admissionSummary: ctx.commandSummary?.admission
+    preShiftData: ctx.preShiftData
   }))
   computedValues.primaryVitalCards = computed(() => (ctx.vitalCards || []).slice(0, 6))
   computedValues.supplementalVitalCards = computed(() => (ctx.vitalCards || []).slice(6))
   computedValues.dashboardHeroDescription = computed(() => {
     const pending = (ctx.warningEvents || []).filter((item: any) => !item.handled).length
-    return `${ctx.periodLabel}重点关注 ${pending} 条待处理预警、班前准入和趋势变化。`
+    return `${ctx.periodLabel}重点关注 ${pending} 条待处理预警、入井健康准入和趋势变化。`
   })
 
   ctx.resolveHeaderMetricTone = (cls: string) => {
@@ -122,6 +119,5 @@ export function useDashboardPage(): any {
     dmScale,
     dmBody,
     unifiedTrendChart
-    ,envChartRef
   }
 }

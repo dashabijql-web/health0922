@@ -11,7 +11,6 @@ import com.xzkj.health.dto.commandcenter.CommandCenterIncidentPageView;
 import com.xzkj.health.dto.commandcenter.CommandCenterIncidentActionRequest;
 import com.xzkj.health.dto.commandcenter.CommandCenterIncidentTimelineItemView;
 import com.xzkj.health.dto.commandcenter.CommandCenterIncidentView;
-import com.xzkj.health.dto.commandcenter.PreShiftReviewActionRequest;
 import com.xzkj.health.dto.commandcenter.PreShiftReviewView;
 import com.xzkj.health.dto.commandcenter.ResolveCommandCenterIncidentRequest;
 import com.xzkj.health.model.entity.SysUser;
@@ -51,14 +50,6 @@ public class CommandCenterController {
     public Result<List<PreShiftReviewView>> getPreShiftReviews(
             @RequestParam(required = false) String status) {
         return Result.ok("获取成功", preShiftReviewService.getTodayReviews(status));
-    }
-
-    @PostMapping("/pre-shift-reviews/{empCode}/action")
-    public Result<PreShiftReviewView> applyPreShiftReviewAction(
-            @PathVariable String empCode,
-            @RequestBody PreShiftReviewActionRequest request) {
-        return Result.ok("复检状态已更新",
-                preShiftReviewService.applyAction(empCode, request, currentOperator()));
     }
 
     @GetMapping("/incidents")

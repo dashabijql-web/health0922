@@ -161,9 +161,9 @@ export function useHeartRatePage() {
     const pct = (count: number) => total > 0 ? Math.round(count / total * 100) : 0
     return [
       { key: 'low', label: '偏低', range: '< 55 bpm', count: overview.value.lowUsers || 0, pct: pct(overview.value.lowUsers || 0), color: '#4FC3F7', icon: '↓', cls: 'zone-low' },
-      { key: 'normal', label: '正常', range: '55–120 bpm', count: overview.value.normalUsers || 0, pct: pct(overview.value.normalUsers || 0), color: '#52c41a', icon: 'OK', cls: 'zone-normal' },
+      { key: 'normal', label: '正常', range: '55–120 bpm', count: overview.value.normalUsers || 0, pct: pct(overview.value.normalUsers || 0), color: '#52c41a', icon: '✓', cls: 'zone-normal' },
       { key: 'elevated', filter: 'warning', label: '偏高', range: '121–150 bpm', count: overview.value.elevatedUsers || 0, pct: pct(overview.value.elevatedUsers || 0), color: '#FFB84D', icon: '↑', cls: 'zone-elevated' },
-      { key: 'danger', label: '危险', range: '> 150 bpm', count: overview.value.dangerUsers || 0, pct: pct(overview.value.dangerUsers || 0), color: '#ff5252', icon: 'ALERT', cls: 'zone-danger' }
+      { key: 'danger', label: '危险', range: '> 150 bpm', count: overview.value.dangerUsers || 0, pct: pct(overview.value.dangerUsers || 0), color: '#ff5252', icon: '⚠', cls: 'zone-danger' }
     ]
   })
   const departmentDrawerTitle = computed(() => {

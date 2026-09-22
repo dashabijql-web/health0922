@@ -31,19 +31,31 @@ export const dashboardViewActions: LegacyVueOptions = {
     })
   },
 
-  goToCommandIncident(event) {
-    if (!event?.id || !event?.occurredAt) return
-    this.$router.push({
-      path: '/safety-command/index',
-      query: {
-        warningId: String(event.id),
-        occurredAt: event.occurredAt,
-        incidentId: event.incidentId || '',
-        person: event.userName || '',
-        area: event.location || event.deptName || '',
-        from: 'dashboard'
-      }
-    })
+  openDepartmentDrawer(event) {
+    if (!event?.deptName || event.deptName === '--') return
+    this.currentDepartment = event.deptName
+    this.departmentDrawerVisible = true
+  },
+
+  findWarningEventByLocator(locator) {
+    if (!locator) return null
+    return (this.warningEvents || []).find((item) =>
+      String(item.id) === String(locator.id) && item.occurredAt === locator.occurredAt) || null
+  },
+
+  handleDepartmentShowEvent(deptEvent) {
+    const original = this.findWarningEventByLocator(deptEvent)
+    if (original) this.openCommandIncident(original)
+  },
+
+  handleDepartmentHandleEvent(deptEvent) {
+    const original = this.findWarningEventByLocator(deptEvent)
+    if (original) this.openHandleDialog(original)
+  },
+
+  handleDepartmentShowProfile(deptEvent) {
+    const original = this.findWarningEventByLocator(deptEvent)
+    if (original) this.goToEmployeeProfile(original)
   },
 
   openDeptPersonModal() {
@@ -88,6 +100,9 @@ export const dashboardViewActions: LegacyVueOptions = {
     this.kpiTodayWarnings = 0
     this.kpiYesterdayWarnings = 0
     this.kpiUnhandledHigh = 0
+    this.kpiCriticalTotal = 0
+    this.kpiMidTotal = 0
+    this.kpiLowTotal = 0
     this.onDutyStats.onDuty = 0
     this.onDutyStats.offDuty = 0
     this.dashboardDataState = 'loading'

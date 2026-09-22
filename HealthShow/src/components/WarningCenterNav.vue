@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { Bell, Document, Setting, TrendCharts, WarningFilled } from '@element-plus/icons-vue'
+import { Document, Setting, TrendCharts, WarningFilled } from '@element-plus/icons-vue'
 
 interface WarningCenterNavItem {
   path: string
@@ -38,10 +38,9 @@ const route = useRoute()
 
 const items: WarningCenterNavItem[] = [
   { path: '/health-monitor/risk-warning', label: '总览', icon: TrendCharts, matches: ['/health-monitor/risk-warning'] },
-  { path: '/alert-management/notifications', label: '待办事件', icon: Bell, matches: ['/alert-management/notifications'] },
-  { path: '/alert-management/records', label: '处置记录', icon: Document, matches: ['/alert-management/records'] },
+  { path: '/alert-management/records', label: '处置记录', icon: Document, matches: ['/alert-management/records', '/alert-management/notifications'] },
   { path: '/alert-management/config', label: '规则配置', icon: Setting, matches: ['/alert-management/config'] },
-  { path: '/alert-management/sos', label: '紧急事件', icon: WarningFilled, matches: ['/alert-management/sos'] }
+  { path: '/alert-management/sos', label: '设备紧急事件', icon: WarningFilled, matches: ['/alert-management/sos'] }
 ]
 
 function isActive(item: WarningCenterNavItem): boolean {

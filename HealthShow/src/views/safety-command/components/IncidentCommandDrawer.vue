@@ -15,8 +15,7 @@
           <span>{{ incident?.typeLabel || event?.type || '事件详情' }}</span>
           <el-tag :type="severityTagType" effect="dark">{{ severityLabel }}</el-tag>
         </div>
-        <el-button v-if="sourcePage === 'dashboard'" text type="primary" @click="emit('open-command-center')">查看现场态势</el-button>
-        <el-button v-else-if="returnAvailable" text type="primary" @click="emit('return-to-origin')">返回统一管控</el-button>
+        <el-button v-if="returnAvailable" text type="primary" @click="emit('return-to-origin')">返回统一管控</el-button>
       </div>
     </template>
 
@@ -114,11 +113,10 @@ import { getUserList } from '@/api/user'
 const props = defineProps({
   visible: { type: Boolean, default: false },
   event: { type: Object, default: null },
-  sourcePage: { type: String, default: '' },
   returnAvailable: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['update:visible', 'updated', 'open-command-center', 'return-to-origin'])
+const emit = defineEmits(['update:visible', 'updated', 'return-to-origin'])
 const incident = ref(null)
 const timeline = ref([])
 const operators = ref([])

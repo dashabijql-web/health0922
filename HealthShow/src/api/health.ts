@@ -204,12 +204,12 @@ export function getDeptHealthCounts(params, requestOptions = {}) {
 }
 
 /**
- * 获取过去 N 天每日各指标异常率（用于趋势折线图）
+ * 获取过去 N 天每日各指标异常次数（趋势图主指标，同时保留异常率字段供报表使用）
  *
  * 后端接口：GET /dashboard/daily-trend?days=30
  * 返回数据示例（数组，按日期升序）：
  *   [
- *     { "date": "2026-02-01", "heartRateRate": 12.5, "bloodOxygenRate": 3.2, "temperatureRate": 1.0, "pressureRate": 8.7 },
+ *     { "date": "2026-02-01", "heartRateCount": 2, "bloodOxygenCount": 1, "temperatureCount": 0, "pressureCount": 0, "heartRateRate": 0.12, "bloodOxygenRate": 0.06, "temperatureRate": 0, "pressureRate": 0 },
  *     ...
  *   ]
  */

@@ -12,7 +12,11 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
   methods: {
     async fetchData() {
       await Promise.allSettled([this.loadStats(), this.loadTrend(), this.loadDept(), this.loadTypes(), this.loadList()])
-      this.$nextTick(() => this.initDonutChart())
+      this.$nextTick(() => {
+        this.initDonutChart()
+        // 今日分布图依赖 warningStats，必须等 loadStats 也落地后再画，否则会在数据还没到时画成"暂无数据"
+        if (this.activePeriod === 'day') this.initTrendDay()
+      })
     },
     async loadStats() {
       const { startDate, endDate } = this.periodRange
@@ -22,11 +26,13 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
           const d=r.data
           this.warningStats[0].value=d.heartRateCount||0; this.warningStats[1].value=d.bloodOxygenCount||0
           this.warningStats[2].value=d.temperatureCount||0; this.warningStats[3].value=d.pressureCount||0
+          this.warningStats[4].value=d.deviceAlarmCount||0
+          this.periodWarningTotal=d.totalWarnings||0
         }
       } catch {}
     },
     async loadTrend() {
-      if (this.activePeriod==='day') { this.$nextTick(()=>this.initTrendDay()); return }
+      if (this.activePeriod==='day') return
       const days = this.activePeriod==='week'?7:30
       try {
         const r = await getRiskWarningTrend(days)
@@ -34,9 +40,9 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
           if (r.data.dates?.length) {
             this.trendData=r.data
           } else if (Array.isArray(r.data) && r.data.length) {
-            const dates: string[] = [], heartRate: number[] = [], bloodOxygen: number[] = [], temperature: number[] = [], pressure: number[] = []
-            r.data.forEach(x=>{dates.push(x.date);heartRate.push(x.heartRate||0);bloodOxygen.push(x.bloodOxygen||0);temperature.push(x.temperature||0);pressure.push(x.pressure||0)})
-            this.trendData={dates,series:{heartRate,bloodOxygen,temperature,pressure}}
+            const dates: string[] = [], heartRate: number[] = [], bloodOxygen: number[] = [], temperature: number[] = [], pressure: number[] = [], deviceAlarm: number[] = []
+            r.data.forEach(x=>{dates.push(x.date);heartRate.push(x.heartRate||0);bloodOxygen.push(x.bloodOxygen||0);temperature.push(x.temperature||0);pressure.push(x.pressure||0);deviceAlarm.push(x.deviceAlarm||0)})
+            this.trendData={dates,series:{heartRate,bloodOxygen,temperature,pressure,deviceAlarm}}
           }
         }
       } catch {}
@@ -96,7 +102,7 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
       c.setOption({
         backgroundColor:'transparent',
         tooltip:chartTooltip(),
-        legend:{data:['心率','血氧','体温','压力'],right:10,top:4,textStyle:{color:'#8ba6c8',fontSize:11},itemWidth:16,itemHeight:8},
+        legend:{data:['心率','血氧','体温','压力','设备报警'],right:10,top:4,textStyle:{color:'#8ba6c8',fontSize:11},itemWidth:16,itemHeight:8},
         grid:{left:'4%',right:'4%',top:'12%',bottom:'10%',containLabel:true},
         xAxis:{type:'category',data:dates,boundaryGap:false,axisLine:{lineStyle:{color:'rgba(0,212,255,0.18)'}},axisTick:{show:false},axisLabel:{color:'#8ba6c8',fontSize:10,interval:4}},
         yAxis:{type:'value',axisLine:{show:false},axisTick:{show:false},splitLine:{lineStyle:{color:'rgba(0,212,255,0.07)',type:'dashed'}},axisLabel:{color:'#8ba6c8',fontSize:10}},
@@ -104,7 +110,8 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
           {name:'心率',type:'line',data:series.heartRate,smooth:true,symbol:'none',lineStyle:{color:'#ef4444',width:1.5},itemStyle:{color:'#ef4444'}},
           {name:'血氧',type:'line',data:series.bloodOxygen,smooth:true,symbol:'none',lineStyle:{color:'#f97316',width:1.5},itemStyle:{color:'#f97316'}},
           {name:'体温',type:'line',data:series.temperature,smooth:true,symbol:'none',lineStyle:{color:'#22c55e',width:1.5},itemStyle:{color:'#22c55e'}},
-          {name:'压力',type:'line',data:series.pressure,smooth:true,symbol:'none',lineStyle:{color:'#00d4ff',width:1.5},itemStyle:{color:'#00d4ff'}}
+          {name:'压力',type:'line',data:series.pressure,smooth:true,symbol:'none',lineStyle:{color:'#00d4ff',width:1.5},itemStyle:{color:'#00d4ff'}},
+          {name:'设备报警',type:'line',data:series.deviceAlarm,smooth:true,symbol:'none',lineStyle:{color:'#a855f7',width:1.5},itemStyle:{color:'#a855f7'}}
         ]
       })
     },
@@ -119,7 +126,7 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
       c.setOption({
         backgroundColor:'transparent',
         tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:'rgba(8,13,35,0.92)',borderColor:'rgba(0,212,255,0.25)',textStyle:{color:'#e0f0ff',fontSize:12}},
-        legend:{data:['心率','血氧','体温','压力'],right:6,top:4,textStyle:{color:'#8ba6c8',fontSize:12},itemWidth:10,itemHeight:8,icon:'rect'},
+        legend:{data:['心率','血氧','体温','压力','设备报警'],right:6,top:4,textStyle:{color:'#8ba6c8',fontSize:12},itemWidth:10,itemHeight:8,icon:'rect'},
         grid:{left:leftPct,right:'8%',top:'14%',bottom:'6%'},
         xAxis:{type:'value',axisLine:{show:false},axisTick:{show:false},splitLine:{lineStyle:{color:'rgba(0,212,255,0.07)',type:'dashed'}},axisLabel:{color:'#8ba6c8',fontSize:12}},
         yAxis:{type:'category',data:names,inverse:true,axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#a8c5e6',fontSize:12,overflow:'truncate',width:92}},
@@ -127,7 +134,8 @@ export const riskWarningPageRuntime: LegacyVueOptions = {
           {name:'心率',type:'bar',stack:'total',barWidth:'50%',data:this.deptData.map(d=>d.heartRate||0),itemStyle:{color:'#ef4444'},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}},
           {name:'血氧',type:'bar',stack:'total',data:this.deptData.map(d=>d.bloodOxygen||0),itemStyle:{color:'#f97316'},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}},
           {name:'体温',type:'bar',stack:'total',data:this.deptData.map(d=>d.temperature||0),itemStyle:{color:'#22c55e'},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}},
-          {name:'压力',type:'bar',stack:'total',data:this.deptData.map(d=>d.pressure||0),itemStyle:{color:'#00d4ff',borderRadius:[0,4,4,0]},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}}
+          {name:'压力',type:'bar',stack:'total',data:this.deptData.map(d=>d.pressure||0),itemStyle:{color:'#00d4ff'},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}},
+          {name:'设备报警',type:'bar',stack:'total',data:this.deptData.map(d=>d.deviceAlarm||0),itemStyle:{color:'#a855f7',borderRadius:[0,4,4,0]},label:{show:true,position:'inside',color:'#fff',fontSize:12,formatter:p=>p.value>0?p.value:''}}
         ]
       })
     },

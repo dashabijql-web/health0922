@@ -5,7 +5,7 @@
     <header class="ac-hd">
       <div class="ac-hd-left">
         <span class="ac-live-dot"></span>
-        <h1 class="ac-hd-title">风险规则配置</h1>
+        <h1 class="ac-hd-title">规则配置</h1>
       </div>
       <div class="ac-hd-kpis">
         <div class="ac-kpi">

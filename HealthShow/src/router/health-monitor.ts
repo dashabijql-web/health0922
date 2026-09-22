@@ -23,7 +23,7 @@
  *   ├── heart-rate   → /health-monitor/heart-rate（心率分析）
  *   ├── blood-oxygen → /health-monitor/blood-oxygen（血氧分析）
  *   ├── sleep        → /health-monitor/sleep（睡眠分析）
- *   └── risk-warning → /health-monitor/risk-warning（风险预警）
+ *   └── risk-warning → /health-monitor/risk-warning（风险事件中心）
  *
  * 父路由的 component 是 Layout（通用布局：顶部导航 + 侧边栏 + 内容区）
  * 子路由的 component 是具体的业务页面组件
@@ -77,40 +77,30 @@ const healthMonitorRouter = {
   },
   children: [
     {
+      // 职工健康画像已并入 3D 沉浸人体（历史曲线、预警、AI 报告等均已迁移过去）；历史入口只做隐藏重定向
       path: 'employee-profile',
       name: 'EmployeeProfile',
       hidden: true,
-      component: () => import('@/views/health-monitor/employee-profile/index.vue'),
-      meta: {
-        title: '职工健康画像',
-        icon: 'User',
-        activeMenu: '/health-monitor/employee-archive',
-        navGroup: 'people',
-        navOrder: 22
-      }
+      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
     },
     {
       path: 'miner-portrait-showcase',
       name: 'MinerPortraitShowcase',
       hidden: true,
-      redirect: to => ({ path: '/health-monitor/employee-profile', query: to.query })
+      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
     },
     {
+      // 旧版 3D 健康画像已弃用，统一改用 3D 沉浸人体；历史入口只做隐藏重定向
       path: 'health-portrait-showcase',
       name: 'HealthPortraitShowcase',
-      component: () => import('@/views/health-monitor/health-portrait-showcase/index.vue'),
-      meta: {
-        title: '3D健康画像',
-        icon: 'User',
-        navGroup: 'people',
-        navOrder: 21.5
-      }
+      hidden: true,
+      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
     },
     {
       path: 'health-portrait',
       name: 'HealthPortrait',
       hidden: true,
-      redirect: to => ({ path: '/health-monitor/employee-profile', query: to.query })
+      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
     },
     {
       // 工作台日历（每日健康均值 + 预警日历视图）
@@ -219,14 +209,15 @@ const healthMonitorRouter = {
       }
     },
     {
-      // 风险预警页面（健康异常预警列表、预警规则配置）
+      // 风险事件中心 - 总览页面（健康异常预警列表、预警规则配置）
       path: 'risk-warning',
       name: 'RiskWarning',
       component: () => import('@/views/health-monitor/risk-warning/index.vue'),
       meta: {
-        title: '风险预警',
+        title: '风险事件中心',
         icon: 'Warning',
         permCode: 'health:risk',
+        activeMenu: '/health-monitor/risk-warning',
         navGroup: 'warning',
         navOrder: 11
       }
@@ -248,7 +239,7 @@ const healthMonitorRouter = {
       name: 'MineEntry',
       component: () => import('@/views/health-monitor/mine-entry/index.vue'),
       meta: {
-        title: '入井准入管理',
+        title: '入井健康准入',
         icon: 'CircleCheck',
         permCode: 'health:mine-entry',
         navGroup: 'people',
@@ -286,8 +277,8 @@ const healthMonitorRouter = {
       meta: {
         title: '3D沉浸人体',
         icon: 'User',
-        navGroup: 'monitor',
-        navOrder: 27
+        navGroup: 'people',
+        navOrder: 24
       }
     },
     {

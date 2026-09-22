@@ -98,14 +98,29 @@ public interface DashboardOverviewMapper {
                                                                @Param("startTime")     String startTime,
                                                                @Param("endTime")       String endTime);
 
+    /**
+     * 按日返回体征异常记录数；同时保留采样率供报表中心等比例型消费者使用。
+     * 异常次数来自按人按日汇总表，避免在趋势接口中扫描原始月表。
+     */
     @Select("SELECT CONVERT(VARCHAR(10), stat_date, 120) AS date, " +
-            "heart_rate_rate AS heart_rate_rate, blood_oxygen_rate AS blood_oxygen_rate, " +
-            "temperature_rate AS temperature_rate, pressure_rate AS pressure_rate " +
-            "FROM health_daily_stats " +
+            "COALESCE(SUM(heart_rate_abnormal_records), 0) AS heart_rate_count, " +
+            "COALESCE(SUM(blood_oxygen_abnormal_records), 0) AS blood_oxygen_count, " +
+            "COALESCE(SUM(temperature_abnormal_records), 0) AS temperature_count, " +
+            "COALESCE(SUM(pressure_abnormal_records), 0) AS pressure_count, " +
+            "CAST(COALESCE(SUM(heart_rate_abnormal_records), 0) * 100.0 / " +
+            "NULLIF(SUM(heart_rate_samples), 0) AS DECIMAL(10,4)) AS heart_rate_rate, " +
+            "CAST(COALESCE(SUM(blood_oxygen_abnormal_records), 0) * 100.0 / " +
+            "NULLIF(SUM(blood_oxygen_samples), 0) AS DECIMAL(10,4)) AS blood_oxygen_rate, " +
+            "CAST(COALESCE(SUM(temperature_abnormal_records), 0) * 100.0 / " +
+            "NULLIF(SUM(temperature_samples), 0) AS DECIMAL(10,4)) AS temperature_rate, " +
+            "CAST(COALESCE(SUM(pressure_abnormal_records), 0) * 100.0 / " +
+            "NULLIF(SUM(pressure_samples), 0) AS DECIMAL(10,4)) AS pressure_rate " +
+            "FROM health_user_daily_summary " +
             "WHERE stat_date >= CONVERT(date,#{startDate}) AND stat_date <= CONVERT(date,#{endDate}) " +
+            "GROUP BY stat_date " +
             "ORDER BY stat_date ASC")
-    List<DashboardDailyAnomalyRateRow> getDailyStatsFromSummary(@Param("startDate") String startDate,
-                                                                @Param("endDate")   String endDate);
+    List<DashboardDailyAnomalyRateRow> getDailyAnomalyCountsFromSummary(@Param("startDate") String startDate,
+                                                                        @Param("endDate")   String endDate);
 
     @Select("SELECT employees.total, bindings.bound_devices, " +
             "ISNULL(activity.active_count * 100 / NULLIF(employees.total, 0), 0) AS active_rate, " +

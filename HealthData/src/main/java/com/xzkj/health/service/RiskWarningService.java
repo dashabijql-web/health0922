@@ -62,6 +62,7 @@ public class RiskWarningService {
                 MapValueUtil.getInt(stats, "bloodOxygenCount"),
                 MapValueUtil.getInt(stats, "temperatureCount"),
                 MapValueUtil.getInt(stats, "pressureCount"),
+                MapValueUtil.getInt(stats, "deviceAlarmCount"),
                 MapValueUtil.getInt(stats, "totalWarnings"),
                 MapValueUtil.getInt(stats, "handledWarnings"),
                 MapValueUtil.getInt(stats, "pendingWarnings"),
@@ -141,6 +142,7 @@ public class RiskWarningService {
         List<Integer> sleepData = new ArrayList<>();
         List<Integer> temperatureData = new ArrayList<>();
         List<Integer> pressureData = new ArrayList<>();
+        List<Integer> deviceAlarmData = new ArrayList<>();
 
         for (Map<String, Object> item : trendData) {
             String date = (String) item.get("date");
@@ -150,6 +152,7 @@ public class RiskWarningService {
             sleepData.add(MapValueUtil.getInt(item, "sleep"));
             temperatureData.add(MapValueUtil.getInt(item, "temperature"));
             pressureData.add(MapValueUtil.getInt(item, "pressure"));
+            deviceAlarmData.add(MapValueUtil.getInt(item, "deviceAlarm"));
         }
 
         return new RiskWarningTrendView(
@@ -159,7 +162,8 @@ public class RiskWarningService {
                         bloodOxygenData,
                         sleepData,
                         temperatureData,
-                        pressureData
+                        pressureData,
+                        deviceAlarmData
                 )
         );
     }
@@ -174,6 +178,7 @@ public class RiskWarningService {
                     MapValueUtil.getInt(row, "sleep"),
                     MapValueUtil.getInt(row, "temperature"),
                     MapValueUtil.getInt(row, "pressure"),
+                    MapValueUtil.getInt(row, "deviceAlarm"),
                     MapValueUtil.getInt(row, "total")
             ));
         }

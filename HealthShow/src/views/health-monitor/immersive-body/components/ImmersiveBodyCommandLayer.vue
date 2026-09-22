@@ -14,7 +14,6 @@
   <IncidentCommandDrawer
     :visible="incidentVisible"
     :event="incident ?? undefined"
-    source-page="employee-profile"
     @update:visible="emit('update:incidentVisible', $event)"
     @updated="emit('updated')"
   />

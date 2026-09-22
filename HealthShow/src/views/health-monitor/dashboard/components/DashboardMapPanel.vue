@@ -128,8 +128,7 @@ const firstValue = (...values: unknown[]) => {
 
 const parkStats = computed(() => [
   { icon: '◉', label: '监控点', value: firstValue(props.healthSnapshot?.monitorOnline, props.healthSnapshot?.cameraOnline), tone: 'cyan' },
-  { icon: '●', label: '人员定位', value: firstValue(props.healthSnapshot?.onlineCount, props.healthSnapshot?.online), tone: 'green' },
-  { icon: '◌', label: '环境设备', value: firstValue(props.healthSnapshot?.environmentOnline), tone: 'cyan' }
+  { icon: '●', label: '人员定位', value: firstValue(props.healthSnapshot?.onlineCount, props.healthSnapshot?.online), tone: 'green' }
 ])
 
 const parkAreas = computed(() => {

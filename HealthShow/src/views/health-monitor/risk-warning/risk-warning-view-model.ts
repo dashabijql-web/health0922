@@ -5,17 +5,17 @@ export const riskWarningPageViewModel: LegacyVueOptions = {
     },
     heroDescription() {
       const total = this.warningStats.reduce((sum, item) => sum + item.value, 0)
-      return `${this.activePeriodLabel}累计 ${total} 条风险波动，优先核查待处理记录并联动预警中心完成处置。`
+      return `${this.activePeriodLabel}累计 ${total} 条风险波动，优先核查待处理记录并联动待办事件完成处置。`
     },
-    // FIX ②: 5个KPI含压力
+    // FIX ②: 6个KPI含压力和设备报警；总预警以后端聚合总数为准，不用前端已加载分类自行相加
     headerKpis() {
-      const total = this.warningStats.reduce((s, x) => s + x.value, 0)
       return [
-        { key: 'total', label: '总预警', val: total, tone: 'danger', note: `${this.activePeriodLabel}总量` },
+        { key: 'total', label: '总预警', val: this.periodWarningTotal, tone: 'danger', note: `${this.activePeriodLabel}总量` },
         { key: 'heart-rate', label: '心率', val: this.warningStats[0].value, tone: 'danger', note: '优先级最高' },
         { key: 'blood-oxygen', label: '血氧', val: this.warningStats[1].value, tone: 'warning', note: '异常波动' },
         { key: 'temperature', label: '体温', val: this.warningStats[2].value, tone: 'success', note: '趋势跟踪' },
-        { key: 'pressure', label: '压力', val: this.warningStats[3].value, tone: 'primary', note: '班前复核' }
+        { key: 'pressure', label: '压力', val: this.warningStats[3].value, tone: 'primary', note: '班前复核' },
+        { key: 'device-alarm', label: '设备报警', val: this.warningStats[4].value, tone: 'alarm', note: '跌倒/SOS等' }
       ]
     },
     warningMetricStripItems() {

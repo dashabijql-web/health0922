@@ -53,6 +53,7 @@
   &.kpi-warning { color: #f97316; text-shadow: 0 0 10px rgba(249,115,22,0.4); }
   &.kpi-success { color: #22c55e; text-shadow: 0 0 10px rgba(34,197,94,0.35); }
   &.kpi-primary { color: #00d4ff; text-shadow: 0 0 10px rgba(0,212,255,0.4); }
+  &.kpi-alarm   { color: #a855f7; text-shadow: 0 0 10px rgba(168,85,247,0.4); }
 }
 .rw-kpi-l { font-size: 11px; color: $dim; margin-top: 2px; white-space: nowrap; }
 .rw-hd-time { flex-shrink:0; font-family:var(--font-mono); font-size:13px; color:$dim; }
@@ -62,6 +63,9 @@
   flex: none;
   align-items: flex-start;
   overflow: visible;
+  /* hm-body 默认栅格第一列写死 260px，但本页 .rw-aside 实际最小宽度是 320px（见下），
+     栅格轨道比内容窄会让 aside 溢出压住右侧 .rw-main，这里让轨道宽度和 aside 保持一致 */
+  grid-template-columns: clamp(320px, 20vw, 400px) minmax(0, 1fr);
 }
 
 /* Aside */

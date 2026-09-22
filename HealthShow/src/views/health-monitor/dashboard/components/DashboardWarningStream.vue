@@ -31,6 +31,12 @@
           </div>
           <div class="dm-ev-row2">
             <span class="dm-ev-user">{{ ev.userName }}</span>
+            <span
+              v-if="ev.deptName && ev.deptName !== '--'"
+              class="dm-ev-dept"
+              title="查看该部门预警"
+              @click.stop="openDepartmentDrawer(ev)"
+            >{{ ev.deptName }}</span>
             <span class="dm-ev-owner" :title="ev.slaText">责任：{{ ev.owner }}</span>
             <span class="dm-ev-val">{{ ev.indicator }}: <em>{{ ev.value }}</em></span>
             <span v-if="ev.handled" class="dm-ev-done">已处理</span>
@@ -48,20 +54,6 @@
           description="当前时段未发现新的风险预警，并不代表所有设备离线或系统绝对安全。"
         />
       </div>
-    </div>
-
-    <div class="dm-latest-warn" v-if="latestDangerEvent">
-      <span class="dm-lw-dot"></span>
-      <span class="dm-lw-name">{{ latestDangerEvent.userName }}</span>
-      <span class="dm-lw-sep">·</span>
-      <span class="dm-lw-type">{{ latestDangerEvent.type }}</span>
-      <span class="dm-lw-sep">·</span>
-      <em class="dm-lw-val">{{ latestDangerEvent.value }}</em>
-      <span class="dm-lw-pending">待处理</span>
-    </div>
-    <div class="dm-latest-warn dm-lw-empty" v-else>
-      <span class="dm-lw-dot dm-lw-dot--safe"></span>
-      <span class="dm-lw-safe-text">当前无危险预警</span>
     </div>
   </div>
 </template>
@@ -83,6 +75,7 @@ interface WarningEvent {
   type?: string
   level?: string
   userName?: string
+  deptName?: string
   owner?: string
   indicator?: string
   value?: string | number
@@ -93,9 +86,9 @@ interface WarningEvent {
 
 const props = defineProps({
   formatTimeAgo: { type: Function as PropType<(time: unknown) => string>, required: true },
-  latestDangerEvent: { type: Object as PropType<WarningEvent | null>, default: null },
   openHandleDialog: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
   openCommandIncident: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
+  openDepartmentDrawer: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
   openWarnCurve: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
   warningEvents: { type: Array as PropType<WarningEvent[]>, required: true }
 })

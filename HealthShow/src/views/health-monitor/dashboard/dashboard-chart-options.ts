@@ -4,7 +4,7 @@ import {
   dashboardWarningLevelMarkerColor
 } from './dashboard-warning-level'
 
-function emptyChartOption(message = '暂无数据') {
+export function emptyChartOption(message = '暂无数据') {
   return {
     backgroundColor: 'transparent',
     graphic: [
@@ -290,24 +290,19 @@ export function buildDeptPersonChartOption({ days, series }) {
   }
 }
 
-export function buildUnifiedTrendChartOption({ rawData, vitalRanges, emptyMessage = '暂无数据' }) {
+export function buildUnifiedTrendChartOption({ rawData, emptyMessage = '暂无数据' }) {
   if (!rawData.length) return emptyChartOption(emptyMessage)
 
   const dates = rawData.map((d) => d.date)
   const sampleRecord = rawData[0] || {}
   const getFieldKey = (possibleKeys) => possibleKeys.find((key) => Object.prototype.hasOwnProperty.call(sampleRecord, key)) || possibleKeys[0]
-  const seriesLeft = [
-    { name: '心率', key: getFieldKey(['heartRateRate', 'hrRate', 'heartRateAbnormalRate']), color: '#00c8ff', threshold: vitalRanges.heartRate.max },
-    { name: '血氧', key: getFieldKey(['bloodOxygenRate', 'boRate', 'bloodOxygenAbnormalRate']), color: '#67C23A', threshold: vitalRanges.bloodOxygen.max },
-    { name: '体温', key: getFieldKey(['temperatureRate', 'tempRate', 'temperatureAbnormalRate']), color: '#ffd200', threshold: vitalRanges.temperature.max }
+  const series = [
+    { name: '心率异常', key: getFieldKey(['heartRateCount', 'heartRateAbnormalRecords']), color: '#00c8ff' },
+    { name: '血氧异常', key: getFieldKey(['bloodOxygenCount', 'bloodOxygenAbnormalRecords']), color: '#67C23A' },
+    { name: '体温异常', key: getFieldKey(['temperatureCount', 'temperatureAbnormalRecords']), color: '#ffd200' },
+    { name: '压力异常', key: getFieldKey(['pressureCount', 'pressureAbnormalRecords']), color: '#a78bfa' }
   ]
-  const seriesRight = [
-    { name: '压力', key: getFieldKey(['pressureRate', 'stressRate', 'pressureAbnormalRate']), color: '#00c8ff', threshold: vitalRanges.pressure.max, yAxisIndex: 1 }
-  ]
-  const allSeries: Array<{ name: string; key: string; color: string; threshold: number; yAxisIndex?: number }> = [...seriesLeft, ...seriesRight]
-  const isSinglePoint = rawData.length === 1
-  const leftHasNonZero = rawData.some((row) => seriesLeft.some((series) => Number(row[series.key]) > 0))
-  const rightHasNonZero = rawData.some((row) => Number(row[seriesRight[0].key]) > 0)
+  const hasNonZero = rawData.some((row) => series.some((item) => Number(row[item.key]) > 0))
 
   return {
     backgroundColor: 'transparent',
@@ -320,7 +315,7 @@ export function buildUnifiedTrendChartOption({ rawData, vitalRanges, emptyMessag
       formatter(params) {
         const header = `<div style="color:#8ba0bb;margin-bottom:3px">${params[0].axisValue}</div>`
         const rows = params
-          .map((p) => `<div><span style="color:${p.color}">● </span>${p.seriesName}异常率：<b style="color:${p.color}">${p.value ?? '--'}%</b></div>`)
+          .map((p) => `<div><span style="color:${p.color}">● </span>${p.seriesName}：<b style="color:${p.color}">${p.value ?? 0}次</b></div>`)
           .join('')
         return header + rows
       }
@@ -331,7 +326,7 @@ export function buildUnifiedTrendChartOption({ rawData, vitalRanges, emptyMessag
       textStyle: { color: '#8ba0bb', fontSize: 10 },
       itemWidth: 14,
       itemHeight: 3,
-      data: allSeries.map((s) => ({ name: s.name, itemStyle: { color: s.color } }))
+      data: series.map((s) => ({ name: s.name, itemStyle: { color: s.color } }))
     },
     grid: { left: 32, right: 36, top: 22, bottom: 20 },
     xAxis: {
@@ -341,34 +336,28 @@ export function buildUnifiedTrendChartOption({ rawData, vitalRanges, emptyMessag
       axisLine: { lineStyle: { color: '#1e3a5f' } },
       splitLine: { show: false }
     },
-    yAxis: [
-      {
-        type: 'value',
-        min: 0,
-        max: leftHasNonZero ? undefined : 1,
-        axisLabel: { color: '#6a7a9a', fontSize: 10, formatter: (v) => `${v}%` },
-        splitLine: { lineStyle: { color: 'rgba(100,160,255,0.08)' } }
-      },
-      {
-        type: 'value',
-        min: 0,
-        position: 'right',
-        max: rightHasNonZero ? undefined : 1,
-        axisLabel: { color: '#00c8ff', fontSize: 10, formatter: (v) => `${v}%` },
-        splitLine: { show: false }
-      }
-    ],
-    series: allSeries.map((s) => ({
+    yAxis: {
+      type: 'value',
+      name: '异常次数',
+      min: 0,
+      max: hasNonZero ? undefined : 1,
+      minInterval: 1,
+      nameTextStyle: { color: '#6a7a9a', fontSize: 10 },
+      axisLabel: { color: '#6a7a9a', fontSize: 10, formatter: (v) => `${v}` },
+      splitLine: { lineStyle: { color: 'rgba(100,160,255,0.08)' } }
+    },
+    series: series.map((s) => ({
       name: s.name,
       type: 'line',
-      smooth: true,
+      smooth: false,
       cursor: 'pointer',
       clip: false,
-      yAxisIndex: s.yAxisIndex || 0,
       symbol: 'circle',
-      symbolSize: isSinglePoint ? 7 : 4,
-      showSymbol: isSinglePoint,
-      data: rawData.map((d) => d[s.key] ?? null),
+      showSymbol: true,
+      data: rawData.map((d) => {
+        const value = Number(d[s.key] ?? 0)
+        return { value, symbolSize: value > 0 ? 6 : 0 }
+      }),
       lineStyle: { color: s.color, width: 2 },
       itemStyle: { color: s.color },
       areaStyle: {
@@ -384,17 +373,6 @@ export function buildUnifiedTrendChartOption({ rawData, vitalRanges, emptyMessag
           ]
         }
       },
-      markLine: {
-        silent: true,
-        symbol: 'none',
-        lineStyle: { color: 'rgba(74,222,128,0.45)', type: 'dashed', width: 1 },
-        data: [{ yAxis: s.threshold, name: '安全阈值' }]
-      },
-      markArea: {
-        silent: true,
-        itemStyle: { color: 'rgba(74,222,128,0.04)' },
-        data: [[{ yAxis: 0 }, { yAxis: s.threshold }]]
-      }
     }))
   }
 }
@@ -640,13 +618,22 @@ export function buildHourDistChartOption({ labels, vals, activePeriod, maxVal, y
       backgroundColor: 'rgba(5,9,22,0.96)',
       borderColor: '#00c8ff',
       textStyle: { color: '#fff', fontSize: 10 },
-      formatter: p => `${p[0].axisValue}：${p[0].value}次`
+      formatter: p => {
+        const point = p?.[0]
+        if (!point) return ''
+        return `时间：${point.axisValue || '--'}<br/>预警次数：${point.value ?? 0}次`
+      }
     },
     grid: { left: 4, right: 4, top: 4, bottom: 20 },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: { color: '#8ba6c8', fontSize: 9, margin: 4 },
+      axisLabel: {
+        color: '#8ba6c8',
+        fontSize: 9,
+        margin: 4,
+        formatter: (value, index) => activePeriod === 'day' && index % 3 !== 0 ? '' : value
+      },
       axisLine: { show: false },
       axisTick: { show: false }
     },
@@ -673,64 +660,6 @@ export function buildHourDistChartOption({ labels, vals, activePeriod, maxVal, y
         formatter: p => yMax && p.value > yMax ? p.value + '↑' : ''
       }
     }]
-  }
-}
-
-export function buildEnvHealthChartOption({ hours, coData, dustData, boData }) {
-  return {
-    backgroundColor: 'transparent',
-    grid: { top: 28, right: 60, bottom: 26, left: 48, containLabel: false },
-    legend: {
-      data: ['CO浓度(ppm)','粉尘(mg/m³)','平均血氧(%)'],
-      top: 4, right: 4, textStyle: { color: '#9ca3af', fontSize: 10 },
-      itemWidth: 12, itemHeight: 6,
-    },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: '#1a1f3a',
-      borderColor: 'rgba(255,255,255,0.15)',
-      textStyle: { color: '#e2e8f0', fontSize: 11 },
-    },
-    xAxis: {
-      type: 'category', data: hours,
-      axisLabel: { color: '#6b7280', fontSize: 9, interval: 5 },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
-      splitLine: { show: false },
-    },
-    yAxis: [
-      {
-        type: 'value', name: 'ppm/mg', nameTextStyle: { color: '#6b7280', fontSize: 9 },
-        axisLabel: { color: '#6b7280', fontSize: 9 },
-        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-        min: 0, max: 20,
-      },
-      {
-        type: 'value', name: '%', nameTextStyle: { color: '#6b7280', fontSize: 9 },
-        axisLabel: { color: '#6b7280', fontSize: 9 },
-        splitLine: { show: false },
-        min: 92, max: 100,
-      },
-    ],
-    series: [
-      {
-        name: 'CO浓度(ppm)', type: 'line', yAxisIndex: 0,
-        data: coData, smooth: true, symbol: 'none',
-        lineStyle: { color: '#fbbf24', width: 1.5 },
-        areaStyle: { color: 'rgba(251,191,36,0.08)' },
-      },
-      {
-        name: '粉尘(mg/m³)', type: 'line', yAxisIndex: 0,
-        data: dustData, smooth: true, symbol: 'none',
-        lineStyle: { color: '#f87171', width: 1.5 },
-        areaStyle: { color: 'rgba(248,113,113,0.06)' },
-      },
-      {
-        name: '平均血氧(%)', type: 'line', yAxisIndex: 1,
-        data: boData, smooth: true, symbol: 'none',
-        lineStyle: { color: '#34d399', width: 2 },
-        areaStyle: { color: 'rgba(52,211,153,0.1)' },
-      },
-    ],
   }
 }
 

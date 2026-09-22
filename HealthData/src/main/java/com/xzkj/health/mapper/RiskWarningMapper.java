@@ -136,6 +136,7 @@ public interface RiskWarningMapper {
             "SUM(CASE WHEN warning_type LIKE '%血氧%' THEN 1 ELSE 0 END)  AS bloodOxygenCount, " +
             "SUM(CASE WHEN warning_type LIKE '%体温%' THEN 1 ELSE 0 END)  AS temperatureCount, " +
             "SUM(CASE WHEN warning_type LIKE '%压力%' THEN 1 ELSE 0 END)  AS pressureCount, " +
+            "SUM(CASE WHEN event_source = 'DEVICE_ALARM' THEN 1 ELSE 0 END) AS deviceAlarmCount, " +
             "COUNT(*) AS totalWarnings, " +
             "SUM(CASE WHEN is_handled = 1 THEN 1 ELSE 0 END) AS handledWarnings, " +
             "SUM(CASE WHEN is_handled = 0 THEN 1 ELSE 0 END) AS pendingWarnings, " +
@@ -340,7 +341,8 @@ public interface RiskWarningMapper {
             "SUM(CASE WHEN warning_type LIKE '%血氧%' THEN 1 ELSE 0 END)  AS bloodOxygen, " +
             "SUM(CASE WHEN warning_type LIKE '%睡眠%' THEN 1 ELSE 0 END)  AS sleep, " +
             "SUM(CASE WHEN warning_type LIKE '%体温%' THEN 1 ELSE 0 END)  AS temperature, " +
-            "SUM(CASE WHEN warning_type LIKE '%压力%' THEN 1 ELSE 0 END)  AS pressure " +
+            "SUM(CASE WHEN warning_type LIKE '%压力%' THEN 1 ELSE 0 END)  AS pressure, " +
+            "SUM(CASE WHEN event_source = 'DEVICE_ALARM' THEN 1 ELSE 0 END) AS deviceAlarm " +
             "FROM v_warning_record " +
             "WHERE create_time >= DATEADD(DAY, -#{days}, GETDATE()) " +
             "GROUP BY CONVERT(VARCHAR(10), create_time, 23) " +
@@ -357,6 +359,7 @@ public interface RiskWarningMapper {
             "SUM(CASE WHEN wr.warning_type LIKE '%睡眠%' THEN 1 ELSE 0 END) AS sleep, " +
             "SUM(CASE WHEN wr.warning_type LIKE '%体温%' THEN 1 ELSE 0 END) AS temperature, " +
             "SUM(CASE WHEN wr.warning_type LIKE '%压力%' THEN 1 ELSE 0 END) AS pressure, " +
+            "SUM(CASE WHEN wr.event_source = 'DEVICE_ALARM' THEN 1 ELSE 0 END) AS deviceAlarm, " +
             "COUNT(*) AS total " +
             "FROM v_warning_record wr " +
             "INNER JOIN employee e ON wr.user_code = e.emp_code " +

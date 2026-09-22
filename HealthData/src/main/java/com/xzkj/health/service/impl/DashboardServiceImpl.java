@@ -334,7 +334,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public List<DailyAnomalyRateView> getDailyAnomalyRates(int days) {
-        // 单日趋势依赖每5分钟刷新的 health_daily_stats，减少进程内缓存叠加的延迟。
+        // 趋势主指标是异常次数，来源于每5分钟刷新的按人按日汇总，避免百分比四舍五入为0。
         long ttl = days == 1 ? Math.min(DAILY_TREND_TTL, TODAY_RANGE_TTL) : DAILY_TREND_TTL;
         return dailyTrendCache.getOrLoad(HealthCacheKeys.key(days), ttl, () -> {
             LocalDate start = LocalDate.now().minusDays(days - 1);
@@ -342,7 +342,7 @@ public class DashboardServiceImpl implements DashboardService {
             String startDate = start.format(DATE_FMT);
             String endDate   = end.format(DATE_FMT);
             return toDailyAnomalyRateViews(
-                    dashboardOverviewMapper.getDailyStatsFromSummary(startDate, endDate)
+                    dashboardOverviewMapper.getDailyAnomalyCountsFromSummary(startDate, endDate)
             );
         });
     }
@@ -470,7 +470,11 @@ public class DashboardServiceImpl implements DashboardService {
                     doubleValue(row.getHeartRateRate()),
                     doubleValue(row.getBloodOxygenRate()),
                     doubleValue(row.getTemperatureRate()),
-                    doubleValue(row.getPressureRate())
+                    doubleValue(row.getPressureRate()),
+                    intValue(row.getHeartRateCount()),
+                    intValue(row.getBloodOxygenCount()),
+                    intValue(row.getTemperatureCount()),
+                    intValue(row.getPressureCount())
             ));
         }
         return result;

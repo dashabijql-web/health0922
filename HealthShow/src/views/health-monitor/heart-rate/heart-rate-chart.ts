@@ -20,42 +20,65 @@ export const heartRateChartMethods: LegacyVueOptions = {
       tooltip: chartTooltip(params => {
         const low = params.find(x => x.seriesName === '偏低')?.value || 0
         const high = params.find(x => x.seriesName === '偏高')?.value || 0
-        return `${params[0].name}<br/>偏低记录：<b style="color:#4FC3F7">${low}</b> 条<br/>偏高记录：<b style="color:#FFB84D">${high}</b> 条<br/>异常合计：${low + high} 条`
+        return `<div style="font-weight:600;margin-bottom:4px;color:#e8f4ff">${params[0].name}</div>` +
+          `偏低记录：<b style="color:#4FC3F7">${low}</b> 条<br/>` +
+          `偏高记录：<b style="color:#FFB84D">${high}</b> 条<br/>` +
+          `异常合计：<b style="color:#00d4ff">${low + high}</b> 条`
       }),
       legend: {
         data: ['偏低', '偏高'],
-        right: 8,
+        right: 10,
         top: 4,
-        textStyle: { color: '#8ba6c8', fontSize: 10 },
+        textStyle: { color: '#8ba6c8', fontSize: 11 },
         itemWidth: 10,
         itemHeight: 8,
-        icon: 'rect'
+        icon: 'roundRect'
       },
-      grid: { ...deptGrid(), top: '12%' },
+      grid: {
+        left: 10,
+        right: 14,
+        top: 32,
+        bottom: 8,
+        containLabel: true
+      },
       xAxis: {
         ...valueAxis(),
         min: 0,
         minInterval: 1,
         axisLabel: { color: '#8ba6c8', fontSize: 10, formatter: value => `${value}条` }
       },
-      yAxis: { ...categoryAxis(d.map(x => x.deptName)), inverse: true },
+      yAxis: {
+        ...categoryAxis(d.map(x => x.deptName)),
+        inverse: true,
+        axisLabel: {
+          color: '#c4d9f0',
+          fontSize: 11,
+          formatter: (value: string) => value.length > 7 ? `${value.slice(0, 6)}…` : value
+        }
+      },
       series: [
         {
           name: '偏低',
           type: 'bar',
           stack: 'total',
-          barWidth: '46%',
+          barWidth: '42%',
           data: d.map(x => x.lowCount),
-          itemStyle: { color: gradH('#4FC3F7', '#0284c7') },
+          itemStyle: {
+            color: gradH('#4FC3F7', '#0284c7'),
+            borderRadius: [3, 0, 0, 3]
+          },
           label: barLabel()
         },
         {
           name: '偏高',
           type: 'bar',
           stack: 'total',
-          barWidth: '46%',
+          barWidth: '42%',
           data: d.map(x => x.highCount),
-          itemStyle: { color: gradH('#FFB84D', '#FF6B35'), borderRadius: [0, 4, 4, 0] },
+          itemStyle: {
+            color: gradH('#FFB84D', '#FF6B35'),
+            borderRadius: [0, 4, 4, 0]
+          },
           label: barLabel()
         }
       ]
@@ -99,12 +122,19 @@ export const heartRateChartMethods: LegacyVueOptions = {
       backgroundColor: 'transparent',
       tooltip: chartTooltip(params => {
         const row = data[params[0].dataIndex]
-        return `${row.date}<br/>异常人数：<b style="color:#FFB84D">${row.anomalyCount}</b> 人` +
-          `<br/>异常率：<b style="color:#00d4ff">${row.anomalyRate}%</b>` +
-          `<br/>有效覆盖：${row.coveredUsers} 人` +
-          `<br/>偏低 / 偏高：${row.lowCount} / ${row.highCount} 人`
+        return `<div style="font-weight:600;margin-bottom:4px;color:#e8f4ff">${row.date}</div>` +
+          `异常人数：<b style="color:#FFB84D">${row.anomalyCount}</b> 人<br/>` +
+          `异常率：<b style="color:#00d4ff">${row.anomalyRate}%</b><br/>` +
+          `有效覆盖：${row.coveredUsers} 人<br/>` +
+          `偏低 / 偏高：<span style="color:#4FC3F7">${row.lowCount}</span> / <span style="color:#FFB84D">${row.highCount}</span> 人`
       }),
-      grid: { ...trendGrid(), right: '6%' },
+      grid: {
+        left: 12,
+        right: 18,
+        top: 34,
+        bottom: 12,
+        containLabel: true
+      },
       xAxis: {
         ...categoryAxis(data.map(row => row.date?.slice(5) || row.date), {
           fontSize: 10,
@@ -117,11 +147,13 @@ export const heartRateChartMethods: LegacyVueOptions = {
           ...valueAxis({ name: '异常人数' }),
           min: 0,
           minInterval: 1,
+          nameTextStyle: { color: '#8ba6c8', fontSize: 10, padding: [0, 0, 4, -4] },
           axisLabel: { color: '#8ba6c8', fontSize: 10, formatter: value => `${value}人` }
         },
         {
           ...valueAxis({ name: '异常率', max: rateMax, splitColor: 'transparent' }),
           min: 0,
+          nameTextStyle: { color: '#8ba6c8', fontSize: 10, padding: [0, -4, 4, 0] },
           axisLabel: { color: '#8ba6c8', fontSize: 10, formatter: value => `${value}%` }
         }
       ],
@@ -133,8 +165,8 @@ export const heartRateChartMethods: LegacyVueOptions = {
           data: data.map(row => row.anomalyCount),
           barMaxWidth: 18,
           itemStyle: {
-            color: gradV('#FFB84D', 'rgba(255,184,77,0.2)'),
-            borderRadius: [3, 3, 0, 0]
+            color: gradV('#FFB84D', 'rgba(255,184,77,0.18)'),
+            borderRadius: [4, 4, 0, 0]
           }
         },
         {
@@ -144,10 +176,15 @@ export const heartRateChartMethods: LegacyVueOptions = {
           data: data.map(row => row.anomalyRate),
           smooth: true,
           symbol: 'circle',
-          symbolSize: 5,
-          lineStyle: { color: '#00d4ff', width: 2 },
-          itemStyle: { color: '#00d4ff' },
-          areaStyle: { color: gradV('rgba(0,212,255,0.16)', 'rgba(0,212,255,0.01)') }
+          symbolSize: 6,
+          lineStyle: {
+            color: '#00d4ff',
+            width: 2.2,
+            shadowColor: 'rgba(0,212,255,0.4)',
+            shadowBlur: 8
+          },
+          itemStyle: { color: '#00d4ff', borderWidth: 1, borderColor: '#fff' },
+          areaStyle: { color: gradV('rgba(0,212,255,0.18)', 'rgba(0,212,255,0.01)') }
         }
       ]
     })

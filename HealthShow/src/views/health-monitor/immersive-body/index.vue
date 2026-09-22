@@ -1,20 +1,31 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import PersonDetailDrawer from '@/views/safety-command/components/PersonDetailDrawer.vue'
+import { useRoute, useRouter } from 'vue-router'
+import { generateEmployeeReport } from '@/api/ai'
+import { renderMarkdown } from '@/utils/lazy-vendors'
+import { useTimeoutTask } from '@/composables/useTimeoutTask'
 import BodyHologram from './BodyHologram.vue'
+import ImmersiveBodyCommandLayer from './components/ImmersiveBodyCommandLayer.vue'
+import EmployeeHealthHistory from './components/EmployeeHealthHistory.vue'
 import {
   createImmersiveWorker,
   loadImmersiveWorker,
+  loadEmployeeWarningStats,
   searchImmersiveWorkers,
   type CommandEmployee,
-  type ImmersiveTrendPoint,
+  type ImmersiveWarningStats,
   type ImmersiveWorker
 } from './immersive-body-runtime'
+import {
+  buildEmployeeProfilePrintHtml,
+  fmtTime,
+  loadEmployeeAiReport
+} from './immersive-body-panels'
 
 defineOptions({ name: 'Body360ImmersivePage' })
 
 const route = useRoute()
+const router = useRouter()
 const hologram = ref<{ resetView: () => void } | null>(null)
 const reducedMotion = ref(false)
 const autoRotate = ref(true)
@@ -47,6 +58,89 @@ const loadingWorker = ref(false)
 let workerRequestSequence = 0
 let searchTimer: number | null = null
 
+// ----------------------------------------------------
+// 预警统计、规则提示、AI 诊断报告（并自职工健康画像）
+// ----------------------------------------------------
+const emptyWarningStats: ImmersiveWarningStats = { warnings: [], warningTotal: 0, pendingTotal: 0, warning7Total: 0 }
+const warningStats = ref<ImmersiveWarningStats>({ ...emptyWarningStats })
+const incidentDrawerVisible = ref(false)
+const currentIncidentEvent = ref<Record<string, unknown> | null>(null)
+const historyRefreshToken = ref(0)
+
+const aiReportVisible = ref(false)
+const aiReportLoading = ref(false)
+const aiReportContent = ref('')
+const aiReportHtml = ref('')
+const printWindowRef = ref<Window | null>(null)
+
+const recentWarnings = computed(() => warningStats.value.warnings.slice(0, 4))
+const recentWarningFootnote = computed(() => {
+  const total = warningStats.value.warningTotal
+  if (!total) return '当前没有近30日预警记录。'
+  if (total > recentWarnings.value.length) {
+    return `已展示最近 ${recentWarnings.value.length} 条，更多记录可进入风险事件中心继续查看。`
+  }
+  return '当前按时间倒序展示最近预警。'
+})
+const recentWarningSummary = computed(() => [
+  { key: 'pending', label: '未处理', value: warningStats.value.pendingTotal, tone: warningStats.value.pendingTotal > 0 ? 'danger' : 'safe' },
+  { key: 'handled', label: '已处理', value: Math.max(0, warningStats.value.warningTotal - warningStats.value.pendingTotal), tone: 'safe' },
+  { key: 'warn7', label: '近7日', value: warningStats.value.warning7Total, tone: warningStats.value.warning7Total > 0 ? 'warning' : 'muted' },
+  { key: 'warn30', label: '近30日', value: warningStats.value.warningTotal, tone: warningStats.value.warningTotal > 0 ? 'accent' : 'muted' }
+])
+
+async function refreshWarningStats(empCode: string) {
+  warningStats.value = await loadEmployeeWarningStats(empCode)
+}
+
+function openEmergency(event: Record<string, unknown>) {
+  if (!event?.id || !event?.occurredAt) return
+  currentIncidentEvent.value = event
+  incidentDrawerVisible.value = true
+}
+
+async function handleIncidentUpdated() {
+  await refreshWarningStats(currentWorker.value.id)
+}
+
+function goWarningCenter() {
+  router.push({
+    path: '/alert-management/records',
+    query: { keyword: currentWorker.value.name || currentWorker.value.id || '' }
+  })
+}
+
+const { start: startPrintTask } = useTimeoutTask(() => printWindowRef.value?.print(), 600)
+
+async function openAiReport() {
+  if (!currentWorker.value.id) return
+  aiReportContent.value = ''
+  aiReportHtml.value = ''
+  aiReportLoading.value = true
+  aiReportVisible.value = true
+  try {
+    const report = await loadEmployeeAiReport(currentWorker.value.id, generateEmployeeReport, renderMarkdown)
+    aiReportContent.value = report.content
+    aiReportHtml.value = report.html
+  } catch {
+    aiReportContent.value = ''
+    aiReportHtml.value = ''
+  } finally {
+    aiReportLoading.value = false
+  }
+}
+
+function printAiReport() {
+  if (!aiReportContent.value) return
+  const html = buildEmployeeProfilePrintHtml(currentWorker.value.name, aiReportHtml.value)
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(html)
+  win.document.close()
+  printWindowRef.value = win
+  startPrintTask()
+}
+
 const requestedEmpCode = computed(() => {
   const raw = route.query.empCode ?? route.query.id
   return typeof raw === 'string' ? raw.trim() : ''
@@ -67,12 +161,20 @@ async function loadWorker(person: CommandEmployee) {
   selectedWorker.value = toWorker(person)
   workerMissing.value = false
   loadingWorker.value = true
+  warningStats.value = { ...emptyWarningStats }
+  aiReportVisible.value = false
+  aiReportContent.value = ''
+  aiReportHtml.value = ''
   try {
-    const detail = await loadImmersiveWorker(person)
+    const [detail] = await Promise.all([
+      loadImmersiveWorker(person),
+      refreshWarningStats(person.empCode)
+    ])
     if (sequence !== workerRequestSequence) return
     selectedWorker.value = detail
     const index = workersList.value.findIndex(item => item.id === detail.id)
     if (index >= 0) workersList.value.splice(index, 1, detail)
+    historyRefreshToken.value += 1
   } catch {
     if (sequence === workerRequestSequence) workerMissing.value = true
   } finally {
@@ -151,185 +253,6 @@ function triggerCall() {
   personCommandVisible.value = true
 }
 
-// ----------------------------------------------------
-// 最近走势曲线与时间窗 (1h / 3h / 6h)
-// ----------------------------------------------------
-const selectedTimeWindow = ref<'1h' | '3h' | '6h'>('3h')
-
-const timeWindowSliceCount = computed(() => {
-  if (selectedTimeWindow.value === '1h') return 5 // 近 1 小时 (5个点，包含端点)
-  if (selectedTimeWindow.value === '3h') return 13 // 近 3 小时 (13个点)
-  return 25 // 近 6 小时
-})
-
-const activeTrendPoints = computed<ImmersiveTrendPoint[]>(() => {
-  const trend = currentWorker.value.trend
-  if (!trend || trend.length === 0) return []
-  return trend.slice(-timeWindowSliceCount.value)
-})
-
-// 指标曲线配置 (压力负荷纯整数无LV；收缩压只画一条标题为收缩压)
-interface MetricSparkConfig {
-  id: string
-  label: string
-  subLabel: string
-  unit: string
-  color: string
-  scaleMin: number
-  scaleMax: number
-  normalMin: number
-  normalMax: number
-  hasNormalBand: boolean
-  isLowerBoundOnly?: boolean
-  getValue: (pt: ImmersiveTrendPoint) => number | null
-  formatVal: (val: number | string | null | undefined) => string
-}
-
-const sparkConfigs: MetricSparkConfig[] = [
-  {
-    id: 'hr',
-    label: '心率',
-    subLabel: 'HEART RATE',
-    unit: 'BPM',
-    color: 'var(--gauge-heart, #f87171)',
-    scaleMin: 50,
-    scaleMax: 140,
-    normalMin: 60,
-    normalMax: 100,
-    hasNormalBand: true,
-    getValue: (pt: ImmersiveTrendPoint) => pt.heartRate,
-    formatVal: (v) => (v !== null && v !== undefined ? `${v}` : '--'),
-  },
-  {
-    id: 'bp',
-    label: '收缩压',
-    subLabel: 'SYSTOLIC BP',
-    unit: 'mmHg',
-    color: 'var(--gauge-bp, #38bdf8)',
-    scaleMin: 80,
-    scaleMax: 160,
-    normalMin: 90,
-    normalMax: 140,
-    hasNormalBand: true,
-    getValue: (pt: ImmersiveTrendPoint) => pt.systolic,
-    formatVal: (v) => (v !== null && v !== undefined ? `${v}` : '--'),
-  },
-  {
-    id: 'spo2',
-    label: '血氧',
-    subLabel: 'SPO2',
-    unit: '%',
-    color: 'var(--gauge-oxygen, #34d399)',
-    scaleMin: 90,
-    scaleMax: 100,
-    normalMin: 95,
-    normalMax: 100,
-    hasNormalBand: true,
-    isLowerBoundOnly: true,
-    getValue: (pt: ImmersiveTrendPoint) => pt.bloodOxygen,
-    formatVal: (v) => (v !== null && v !== undefined ? `${v}` : '--'),
-  },
-  {
-    id: 'temp',
-    label: '体温',
-    subLabel: 'BODY TEMP',
-    unit: '°C',
-    color: 'var(--gauge-temp, #fbbf24)',
-    scaleMin: 35.5,
-    scaleMax: 38.5,
-    normalMin: 36.0,
-    normalMax: 37.5,
-    hasNormalBand: true,
-    getValue: (pt: ImmersiveTrendPoint) => pt.temperature,
-    formatVal: (v) => (v !== null && v !== undefined ? `${v}` : '--'),
-  },
-  {
-    id: 'stress',
-    label: '压力负荷',
-    subLabel: 'STRESS',
-    unit: '', // 压力用整数，不要 LV
-    color: 'var(--gauge-stress, #a78bfa)',
-    scaleMin: 0,
-    scaleMax: 100,
-    normalMin: 0,
-    normalMax: 50,
-    hasNormalBand: true,
-    getValue: (pt: ImmersiveTrendPoint) => pt.stress,
-    formatVal: (v) => (v !== null && v !== undefined ? `${v}` : '--'),
-  },
-]
-
-// 计算单个 sparkline 的 SVG 路径与阈值带坐标
-const SVG_W = 280
-const SVG_H = 34
-const PAD_TOP = 2
-const PAD_BOTTOM = 10
-const PAD_LEFT = 4
-const PAD_RIGHT = 4
-const PLOT_W = SVG_W - PAD_LEFT - PAD_RIGHT
-const PLOT_H = SVG_H - PAD_TOP - PAD_BOTTOM
-
-function getSparklineData(cfg: MetricSparkConfig) {
-  const pts = activeTrendPoints.value.filter(point => cfg.getValue(point) !== null)
-  if (!pts || pts.length === 0) return null
-
-  const { scaleMin, scaleMax, normalMin, normalMax } = cfg
-
-  function mapY(val: number) {
-    const clamped = Math.min(scaleMax, Math.max(scaleMin, val))
-    const ratio = (clamped - scaleMin) / (scaleMax - scaleMin)
-    return Number((PAD_TOP + (1 - ratio) * PLOT_H).toFixed(1))
-  }
-
-  function mapX(idx: number, count: number) {
-    if (count <= 1) return PAD_LEFT + PLOT_W / 2
-    return Number((PAD_LEFT + (idx / (count - 1)) * PLOT_W).toFixed(1))
-  }
-
-  const coords = pts.map((pt, i) => {
-    const v = cfg.getValue(pt) as number
-    return {
-      x: mapX(i, pts.length),
-      y: mapY(v),
-      val: v,
-      time: pt.time,
-    }
-  })
-
-  // 折线路径
-  const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ')
-
-  // 阴影面积路径
-  const baseLineY = PAD_TOP + PLOT_H
-  const areaD = `${pathD} L ${coords[coords.length - 1].x} ${baseLineY} L ${coords[0].x} ${baseLineY} Z`
-
-  // 正常范围带 Y
-  const yNormalUpper = mapY(normalMax)
-  const yNormalLower = mapY(normalMin)
-  const normalBandY = yNormalUpper
-  const normalBandH = Math.max(2, yNormalLower - yNormalUpper)
-
-  // 最新点判断是否越界
-  const latestPt = coords[coords.length - 1]
-  const isOutOfRange = cfg.isLowerBoundOnly
-    ? latestPt.val < normalMin
-    : latestPt.val < normalMin || latestPt.val > normalMax
-
-  return {
-    pathD,
-    areaD,
-    coords,
-    latestPt,
-    isOutOfRange,
-    yNormalUpper,
-    yNormalLower,
-    normalBandY,
-    normalBandH,
-    startTime: pts[0]?.time || '',
-    endTime: pts[pts.length - 1]?.time || '',
-  }
-}
-
 function handleGlobalClick(event: MouseEvent) {
   if (isSelectorOpen.value && selectorRef.value && !selectorRef.value.contains(event.target as Node)) {
     isSelectorOpen.value = false
@@ -377,6 +300,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="immersive-page" :class="{ 'is-cockpit': isCockpit }">
+   <div class="immersive-stage">
     <!-- 底层：全屏满铺 3D 线框人体背景（接收全屏鼠标拖拽旋转） -->
     <div class="immersive-bg">
       <BodyHologram
@@ -403,7 +327,7 @@ onBeforeUnmount(() => {
           <div class="top-title-group">
             <span class="kicker-dot"></span>
             <span class="top-kicker">HUMAN BIOMETRICS 360°</span>
-            <h1 class="top-title">360° 人体全景沉浸</h1>
+            <h1 class="top-title">3D沉浸人体</h1>
             <span class="badge-pill">真实数据</span>
           </div>
         </div>
@@ -493,6 +417,21 @@ onBeforeUnmount(() => {
             </transition>
           </div>
 
+          <!-- AI 诊断报告入口 -->
+          <button
+            type="button"
+            class="cockpit-btn"
+            :disabled="!currentWorker.id || aiReportLoading"
+            @click="openAiReport"
+            title="生成该人员的 AI 健康诊断报告"
+          >
+            <svg class="cockpit-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M4 2h6l2 2v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke-linejoin="round"/>
+              <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" stroke-linecap="round"/>
+            </svg>
+            <span>{{ aiReportLoading ? 'AI 生成中...' : 'AI 诊断报告' }}</span>
+          </button>
+
           <!-- 全屏舱切换开关 (藏掉应用侧栏与顶栏) -->
           <button
             type="button"
@@ -531,7 +470,10 @@ onBeforeUnmount(() => {
               {{ currentWorker.freshnessStatus === 'fresh' ? '在线' : (currentWorker.freshnessStatus === 'stale' ? '陈旧' : '离线') }}
             </span>
           </div>
-          <div class="brief-team">{{ currentWorker.team }} · {{ currentWorker.role }}</div>
+          <div class="brief-team">
+            {{ currentWorker.team }} · {{ currentWorker.role }}
+            <template v-if="currentWorker.gender">· {{ currentWorker.gender === 2 ? '女' : '男' }}</template>
+          </div>
         </div>
 
         <!-- 遥测两行缩写 -->
@@ -637,209 +579,117 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <!-- 4. 下方半透明通栏走势条 (压缩至 94px 超扁平轻薄，后方腿部与底盘光环清晰通透) -->
-      <section class="glass-bar glass-bar--bottom" aria-label="近时体征动态走势">
-        <div class="trend-bar__header">
-          <div class="trend-bar__title-wrap">
-            <span class="trend-bar__title">近时体征动态走势</span>
-            <span class="trend-bar__pill">真实采集 · 30s刷新</span>
-          </div>
+      <!-- 4. 左侧悬浮玻璃面板：人体已向右平移让出空白，近30日预警记录浮在此处，无需下滑查看 -->
+      <div class="ib-warning-panel">
+        <div class="ib-panel-head">
+          <span class="ib-panel-bar"></span>近30日预警记录
+          <span class="ib-panel-note">{{ recentWarningFootnote }}</span>
+        </div>
 
-          <!-- 时间窗切换：1h / 3h (默认) / 6h -->
-          <div class="time-window-tabs" role="tablist">
-            <button
-              type="button"
-              class="time-tab"
-              :class="{ 'is-active': selectedTimeWindow === '1h' }"
-              @click="selectedTimeWindow = '1h'"
-            >
-              1h
-            </button>
-            <button
-              type="button"
-              class="time-tab"
-              :class="{ 'is-active': selectedTimeWindow === '3h' }"
-              @click="selectedTimeWindow = '3h'"
-            >
-              3h
-            </button>
-            <button
-              type="button"
-              class="time-tab"
-              :class="{ 'is-active': selectedTimeWindow === '6h' }"
-              @click="selectedTimeWindow = '6h'"
-            >
-              6h
-            </button>
+        <div class="ib-warning-stats">
+          <div v-for="item in recentWarningSummary" :key="item.key" :class="`tone-${item.tone}`">
+            <span>{{ item.label }}</span><strong>{{ item.value }}</strong>
           </div>
         </div>
 
-        <!-- 走势内容区：5 项轻量 SVG 小曲线 / 无数据空态 -->
-        <div class="trend-bar__content">
-          <div v-if="activeTrendPoints.length === 0" class="trend-empty-state">
-            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="12" cy="12" r="9"/>
-              <line x1="9" y1="12" x2="15" y2="12"/>
-            </svg>
-            <div class="empty-text">
-              <strong>暂无走势数据</strong>
-              <span>设备离线或未接入，未采集连续历史曲线</span>
+        <div v-if="recentWarnings.length === 0" class="ib-empty-warn">该员工近30日暂无预警记录</div>
+        <div v-else class="ib-warning-list">
+          <article v-for="(warning, index) in recentWarnings" :key="(warning.id || warning.createTime) + '_' + index" class="ib-warning-item">
+            <div>
+              <strong>{{ warning.warningType || warning.type || '--' }}</strong>
+              <span>{{ fmtTime(warning.occurredAt || warning.createTime || warning.time) }}</span>
             </div>
-          </div>
-
-          <!-- 5 条微型 SVG 走势图 (横跨通栏，更扁更透) -->
-          <div v-else class="trend-grid">
-            <div
-              v-for="cfg in sparkConfigs"
-              :key="cfg.id"
-              class="spark-card"
-              :class="{ 'is-alert': getSparklineData(cfg)?.isOutOfRange }"
-            >
-              <div class="spark-card__top">
-                <div class="spark-meta">
-                  <span class="spark-dot" :style="{ backgroundColor: cfg.color }"></span>
-                  <strong class="spark-name">{{ cfg.label }}</strong>
-                </div>
-                <div class="spark-val">
-                  <strong
-                    :style="{ color: getSparklineData(cfg)?.isOutOfRange ? 'var(--status-warning)' : cfg.color }"
-                  >
-                    {{ cfg.formatVal(cfg.id === 'bp' && currentWorker.vitals.bloodPressure ? currentWorker.vitals.bloodPressure.split('/')[0] : (currentWorker.vitals as any)[cfg.id === 'hr' ? 'heartRate' : (cfg.id === 'spo2' ? 'bloodOxygen' : (cfg.id === 'temp' ? 'temperature' : (cfg.id === 'stress' ? 'stress' : 'heartRate')))]) }}
-                  </strong>
-                  <small v-if="cfg.unit">{{ cfg.unit }}</small>
-                </div>
-              </div>
-
-              <!-- 轻量 SVG 扁平曲线 -->
-              <div class="spark-svg-wrap">
-                <svg
-                  :viewBox="`0 0 ${SVG_W} ${SVG_H}`"
-                  class="spark-svg"
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient :id="`grad-imm-${cfg.id}`" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" :stop-color="cfg.color" stop-opacity="0.08"/>
-                      <stop offset="100%" :stop-color="cfg.color" stop-opacity="0.0"/>
-                    </linearGradient>
-                  </defs>
-
-                  <rect
-                    v-if="getSparklineData(cfg)"
-                    x="0"
-                    :y="getSparklineData(cfg)!.normalBandY"
-                    :width="SVG_W"
-                    :height="getSparklineData(cfg)!.normalBandH"
-                    fill="rgba(255, 255, 255, 0.02)"
-                  />
-
-                  <line
-                    v-if="getSparklineData(cfg) && !cfg.isLowerBoundOnly"
-                    x1="0"
-                    :y1="getSparklineData(cfg)!.yNormalUpper"
-                    :x2="SVG_W"
-                    :y2="getSparklineData(cfg)!.yNormalUpper"
-                    stroke="rgba(255, 255, 255, 0.16)"
-                    stroke-dasharray="2 3"
-                    stroke-width="1"
-                  />
-                  <line
-                    v-if="getSparklineData(cfg)"
-                    x1="0"
-                    :y1="getSparklineData(cfg)!.yNormalLower"
-                    :x2="SVG_W"
-                    :y2="getSparklineData(cfg)!.yNormalLower"
-                    stroke="rgba(255, 255, 255, 0.16)"
-                    stroke-dasharray="2 3"
-                    stroke-width="1"
-                  />
-
-                  <path
-                    v-if="getSparklineData(cfg)"
-                    :d="getSparklineData(cfg)!.areaD"
-                    :fill="`url(#grad-imm-${cfg.id})`"
-                  />
-
-                  <path
-                    v-if="getSparklineData(cfg)"
-                    :d="getSparklineData(cfg)!.pathD"
-                    fill="none"
-                    :stroke="getSparklineData(cfg)!.isOutOfRange ? 'var(--status-warning)' : cfg.color"
-                    stroke-width="1.6"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-
-                  <circle
-                    v-if="getSparklineData(cfg)"
-                    :cx="getSparklineData(cfg)!.latestPt.x"
-                    :cy="getSparklineData(cfg)!.latestPt.y"
-                    r="2.2"
-                    :fill="getSparklineData(cfg)!.isOutOfRange ? 'var(--status-warning)' : cfg.color"
-                  />
-
-                  <text
-                    x="2"
-                    :y="SVG_H - 1"
-                    fill="rgba(255, 255, 255, 0.35)"
-                    font-size="7.5"
-                    font-family="monospace"
-                  >
-                    {{ getSparklineData(cfg)?.startTime }}
-                  </text>
-                  <text
-                    :x="SVG_W - 2"
-                    :y="SVG_H - 1"
-                    text-anchor="end"
-                    fill="rgba(255, 255, 255, 0.35)"
-                    font-size="7.5"
-                    font-family="monospace"
-                  >
-                    {{ getSparklineData(cfg)?.endTime }}
-                  </text>
-                </svg>
-              </div>
-            </div>
-          </div>
+            <em :class="warning.handled ? 'done' : 'pend'">{{ warning.handled ? '已处理' : '待处理' }}</em>
+            <el-button
+              v-if="!warning.handled && warning.id && (warning.occurredAt || warning.createTime || warning.time)"
+              type="danger"
+              link
+              @click="openEmergency({ ...warning, occurredAt: warning.occurredAt || warning.createTime || warning.time })"
+            >处置</el-button>
+          </article>
         </div>
-      </section>
+
+        <div class="ib-warning-footer">
+          <el-button type="primary" link @click="goWarningCenter">查看全部预警</el-button>
+        </div>
+      </div>
     </div>
+   </div>
 
-    <PersonDetailDrawer
-      :visible="personCommandVisible"
-      :user-code="currentWorker.id"
-      :user-name="currentWorker.name"
-      :dept-name="currentWorker.team"
-      :imei="currentWorker.imei"
+   <!-- 3D 舞台下方：历史健康数据（全屏舱模式下隐藏，保持沉浸纯净） -->
+   <section v-show="!isCockpit" class="immersive-below">
+     <EmployeeHealthHistory
+       :employee-code="currentWorker.id"
+       :employee-name="currentWorker.name"
+       :refresh-token="historyRefreshToken"
+     />
+   </section>
+
+    <el-dialog
+      v-model="aiReportVisible"
+      :title="'AI 健康诊断报告 - ' + currentWorker.name"
+      width="820px"
+      class="ib-ai-report-dialog"
+      append-to-body
+      :close-on-click-modal="false"
+    >
+      <div v-if="aiReportLoading" class="ib-report-loading">
+        <div class="ib-report-dots"><span></span><span></span><span></span></div>
+        <p>正在生成健康诊断报告，请稍候...</p>
+      </div>
+      <div v-else-if="aiReportContent" v-html="aiReportHtml" class="ib-report-content"></div>
+      <div v-else class="ib-report-empty">生成失败，请重试</div>
+      <template #footer>
+        <el-button @click="aiReportVisible = false">关闭</el-button>
+        <el-button type="primary" :disabled="!aiReportContent || aiReportLoading" @click="printAiReport">打印 / 导出 PDF</el-button>
+      </template>
+    </el-dialog>
+
+    <ImmersiveBodyCommandLayer
+      v-model:person-visible="personCommandVisible"
+      v-model:incident-visible="incidentDrawerVisible"
+      :person="{ empCode: currentWorker.id, empName: currentWorker.name, deptName: currentWorker.team, imei: currentWorker.imei }"
       :online="currentWorker.telemetry.netty === 'online'"
-      mode="contact"
-      @update:visible="personCommandVisible = $event"
+      :incident="currentIncidentEvent"
+      @emergency="openEmergency"
+      @updated="handleIncidentUpdated"
     />
   </div>
 </template>
 
 <style scoped>
-/* 全屏容器：吃满 Layout 内容区，纯粹通透无暗角遮挡 */
+/* 全屏容器：吃满 Layout 内容区，3D 舞台之外自然文档流，可向下滚动到画像内容 */
 .immersive-page {
   position: relative;
   width: 100%;
-  height: calc(100vh - 50px);
-  min-height: 600px;
-  overflow: hidden;
-  background: #05080e;
-  border-radius: var(--radius-md);
   transition: all 0.2s ease;
 }
 
-/* 全屏舱模式：逃逸外层 Layout，满屏覆盖，隐藏侧栏与顶栏 */
+/* 3D 舞台：固定视口高度，纯粹通透无暗角遮挡（去掉底部走势条后拉高，人体展示区域更大） */
+.immersive-stage {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 24px);
+  min-height: 680px;
+  overflow: hidden;
+  background: #05080e;
+  border-radius: var(--radius-md);
+}
+
+/* 全屏舱模式：逃逸外层 Layout，满屏覆盖，隐藏侧栏与顶栏；下方画像内容一并隐藏保持沉浸纯净 */
 .immersive-page.is-cockpit {
   position: fixed !important;
   inset: 0 !important;
   z-index: 9999 !important;
   width: 100vw !important;
   height: 100vh !important;
-  border-radius: 0 !important;
   margin: 0 !important;
+  overflow: hidden;
+}
+
+.immersive-page.is-cockpit .immersive-stage {
+  height: 100%;
+  border-radius: 0;
 }
 
 /* 3D 背景层：铺满整屏，接收鼠标拖拽事件，严格铺在最底层 z-index: 0 */
@@ -882,6 +732,187 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 1;
   pointer-events: none;
+}
+
+/* 3D 舞台下方：历史健康数据，正常文档流可滚动（近30日预警记录已移入舞台左侧悬浮层） */
+.immersive-below {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 悬浮在舞台左侧空白区的预警面板（人体已右移让出此区域），随内容纵向排布、超高时内部滚动 */
+.ib-warning-panel {
+  position: absolute;
+  left: 4%;
+  top: 232px;
+  bottom: 164px;
+  width: 33%;
+  min-width: 300px;
+  max-width: 440px;
+  z-index: 2;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(8, 12, 18, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 0 1px rgba(255, 255, 255, 0.12);
+  padding: 16px;
+}
+
+.ib-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.ib-panel-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--el-color-primary, #409eff);
+}
+
+.ib-panel-note {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.ib-warning-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.ib-warning-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ib-warning-stats span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ib-warning-stats strong {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.ib-warning-stats .tone-danger strong { color: var(--status-warning, #f59e0b); }
+.ib-warning-stats .tone-warning strong { color: var(--status-warning, #f59e0b); }
+.ib-warning-stats .tone-accent strong { color: var(--el-color-primary, #409eff); }
+
+.ib-empty-warn {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.ib-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ib-warning-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ib-warning-item strong {
+  color: var(--text-primary);
+}
+
+.ib-warning-item span {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ib-warning-item em {
+  font-style: normal;
+  font-size: 12px;
+}
+
+.ib-warning-item em.pend { color: var(--status-warning, #f59e0b); }
+.ib-warning-item em.done { color: var(--status-normal, #22c55e); }
+
+.ib-warning-footer {
+  margin-top: 12px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ib-report-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: var(--text-secondary);
+}
+
+.ib-report-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.ib-report-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--el-color-primary, #409eff);
+  animation: ib-report-dot-bounce 1.2s infinite ease-in-out;
+}
+
+.ib-report-dots span:nth-child(2) { animation-delay: 0.15s; }
+.ib-report-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ib-report-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.ib-report-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  line-height: 1.7;
+}
+
+.ib-report-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 24px 0;
 }
 
 /* 玻璃通用质感：严格限制背景透明度 <= 0.24，采用 5px 微磨砂保持背景人体与粒子清晰透出 */
@@ -1535,206 +1566,6 @@ onBeforeUnmount(() => {
   height: 10px;
 }
 
-/* ----------------------------------------------------
-   4. 下方半透明通栏走势条 (压缩至 94px 极致扁平与通透)
-   ---------------------------------------------------- */
-.glass-bar--bottom {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 8px;
-  height: 94px;
-  display: flex;
-  flex-direction: column;
-  padding: 5px 10px;
-  border-radius: 6px;
-  background: rgba(8, 12, 18, 0.22);
-}
-
-.trend-bar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-
-.trend-bar__title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.trend-bar__title {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-.trend-bar__pill {
-  padding: 1px 5px;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 2px;
-  background: rgba(56, 189, 248, 0.08);
-  color: var(--signal-cyan, #38bdf8);
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-}
-
-.time-window-tabs {
-  display: flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  padding: 1px;
-}
-
-.time-tab {
-  padding: 1px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 2px;
-  transition: all 0.15s ease;
-}
-
-.time-tab.is-active {
-  background: rgba(56, 189, 248, 0.25);
-  color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-}
-
-.trend-bar__content {
-  flex: 1;
-  min-height: 0;
-}
-
-.trend-empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  height: 100%;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.015);
-  color: var(--text-muted);
-}
-
-.empty-icon {
-  width: 18px;
-  height: 18px;
-  opacity: 0.5;
-}
-
-.empty-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.empty-text strong {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.empty-text span {
-  font-size: 9.5px;
-  color: var(--text-muted);
-}
-
-/* 5 项 sparkline 卡片：扁平轻薄，背景高度透出后方腿部与底盘 */
-.trend-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  height: 100%;
-}
-
-.spark-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 2px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  background: transparent;
-  min-width: 0;
-}
-
-.spark-card.is-alert {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.06);
-}
-
-.spark-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-}
-
-.spark-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.spark-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.spark-name {
-  color: var(--text-secondary);
-  font-size: 9.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-.spark-val {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.spark-val strong {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-}
-
-.spark-val small {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 8px;
-}
-
-.spark-svg-wrap {
-  width: 100%;
-  height: 34px;
-}
-
-.spark-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-}
-
 /* 弹窗深色磨砂工业风 */
 :deep(.custom-msg-dialog) {
   background: rgba(13, 18, 28, 0.94) !important;
@@ -1938,6 +1769,33 @@ onBeforeUnmount(() => {
     min-height: 100vh;
   }
 
+  .immersive-stage {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .immersive-below {
+    position: relative;
+    z-index: 2;
+    margin-top: 0;
+    padding: 0 10px 16px;
+  }
+
+  .ib-warning-panel {
+    position: static;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    top: auto;
+    bottom: auto;
+  }
+
+  .ib-warning-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .immersive-bg {
     position: fixed;
     inset: 0;
@@ -2010,28 +1868,5 @@ onBeforeUnmount(() => {
     flex-wrap: wrap;
   }
 
-  .glass-bar--bottom {
-    position: static;
-    height: auto;
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .trend-bar__content {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-  }
-
-  .trend-grid {
-    display: flex;
-    gap: 8px;
-    width: max-content;
-  }
-
-  .spark-card {
-    width: 220px;
-    flex-shrink: 0;
-  }
 }
 </style>

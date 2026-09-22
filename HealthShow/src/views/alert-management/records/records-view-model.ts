@@ -23,7 +23,7 @@ export function createRecordsOverview() {
 }
 
 export function createRecordsSearchForm() {
-  return { dateRange: null, warningType: '', warningLevel: '', handleStatus: 'handled', keyword: '' }
+  return { dateRange: null, warningType: '', warningLevel: '', handleStatus: '', keyword: '' }
 }
 
 export function createRecordsPagination() {

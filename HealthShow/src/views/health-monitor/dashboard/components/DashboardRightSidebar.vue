@@ -148,7 +148,7 @@
           <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#38ef7d"></i>体征趋势</span>
           <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#ff5252"></i>预警分布</span>
           <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#ffd200"></i>异常人员</span>
-          <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#00c8ff"></i>班前准入</span>
+          <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#00c8ff"></i>入井健康准入</span>
           <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#b388ff"></i>设备状态</span>
           <span class="dm-ai-dim"><i class="dm-ai-dim-dot" style="background:#ff8c00"></i>健康建议</span>
         </div>
