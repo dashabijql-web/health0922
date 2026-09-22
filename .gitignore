@@ -1,0 +1,29 @@
+# OS & temp
+.DS_Store
+Thumbs.db
+~$*.docx
+
+# Runtime & logs
+runtime/
+runtime-logs/
+*.log
+perf.log
+
+# Node & Frontend
+**/node_modules/
+**/dist/
+**/.vite/
+
+# Java & Backend
+**/target/
+*.class
+*.jar
+*.war
+
+# Python
+**/__pycache__/
+*.pyc
+
+# IDE
+.idea/
+*.iml

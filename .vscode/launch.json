@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "启动 HealthApplication (Spring Boot)",
+            "request": "launch",
+            "mainClass": "com.xzkj.health.HealthApplication",
+            "projectName": "health",
+            "vmArgs": "-Djava.net.preferIPv4Stack=true",
+            "env": {
+                "DB_HOST": "127.0.0.1",
+                "DB_PORT": "1433",
+                "DB_USERNAME": "sa",
+                "DB_PASSWORD": "123abcd,",
+                "DB_NAME_OLD": "health",
+                "HEALTH_DEFAULT_SOURCE": "old",
+                "HEALTH_REQUEST_SOURCE": "old",
+                "HEALTH_WATCH_SOURCE": "old",
+                "HEALTH_SIMULATOR_SOURCE": "old",
+                "HEALTH_ALLOW_REQUEST_SOURCE_OVERRIDE": "false"
+            }
+        }
+    ]
+}
