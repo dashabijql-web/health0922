@@ -10,7 +10,7 @@
 
 ## 仓库边界与协作规则
 
-- 根目录是唯一 Git 仓库，远端为 `https://github.com/dashabijql-web/health.git`。`HealthShow` 和 `HealthData` 均为子目录，所有 Git 操作在根目录执行。
+- 根目录是唯一 Git 仓库，远端为 `https://github.com/dashabijql-web/health0922.git`。`HealthShow` 和 `HealthData` 均为子目录，所有 Git 操作在根目录执行。
 - `/Users/jiangqianli/Documents/code/health-new` 固定连接新库 `health_new`；同级 `health-old` 固定连接老库 `health`。两个 checkout 独立修改、运行和验收，禁止跨目录混改或通过请求切换数据库。
 - 未经用户明确要求，不提交、不推送、不修改 `origin`。
 
