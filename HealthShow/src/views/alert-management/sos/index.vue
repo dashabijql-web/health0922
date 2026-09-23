@@ -265,7 +265,7 @@ async function handleItem(item: DeviceAlarmItem) {
 
 function goToProfile(item: DeviceAlarmItem) {
   void router.push({
-    path: '/health-monitor/employee-profile',
+    name: 'ImmersiveBody',
     query: { userCode: item.userCode || item.empCode }
   })
 }

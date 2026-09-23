@@ -14,7 +14,7 @@ export function useMineEntryNavigation() {
   const goPortrait = (item: MineEntryPerson) => {
     if (!item?.empCode) return
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: {
         empCode: item.empCode,
         empName: item.empName || '',
@@ -27,7 +27,7 @@ export function useMineEntryNavigation() {
   const backToProfile = () => {
     if (!route.query.empCode) return
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: {
         empCode: route.query.empCode,
         empName: route.query.empName || ''

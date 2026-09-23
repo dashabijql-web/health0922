@@ -395,7 +395,7 @@ const openDetail = (row: WarningRecord) => { detailRow.value = row; detailVisibl
 
 function goToProfile(row: WarningRecord) {
   void router.push({
-    path: '/health-monitor/employee-profile',
+    name: 'ImmersiveBody',
     query: { userCode: String(row.userCode || row.empCode || '') }
   })
 }

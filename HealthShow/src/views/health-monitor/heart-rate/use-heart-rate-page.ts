@@ -438,7 +438,7 @@ export function useHeartRatePage() {
     const empCode = item.userCode || item.empCode
     const { startDate, endDate } = periodRange.value
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: {
         empCode,
         focus: 'heartRate-abnormal',
@@ -452,7 +452,7 @@ export function useHeartRatePage() {
   function goToPortrait(item: AnyRow) {
     const empCode = item.userCode || item.empCode
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: empCode ? { empCode } : { name: item.userName }
     })
   }

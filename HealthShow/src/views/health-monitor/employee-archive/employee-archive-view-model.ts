@@ -102,7 +102,7 @@ export function buildEmployeeArchiveSubmitPayload(form) {
 
 export function buildEmployeeArchivePortraitRoute(employee) {
   return {
-    path: '/health-monitor/employee-profile',
+    name: 'ImmersiveBody',
     query: {
       empCode: employee.empCode || '',
       empName: employee.empName || '',

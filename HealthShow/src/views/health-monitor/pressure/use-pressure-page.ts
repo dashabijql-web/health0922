@@ -49,7 +49,7 @@ export function usePressurePage() {
   function goToPortrait(item: MetricRow) {
     const empCode = item.userCode || item.empCode
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: empCode ? { empCode } : { name: item.userName }
     })
   }

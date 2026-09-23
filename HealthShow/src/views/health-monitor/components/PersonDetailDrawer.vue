@@ -371,7 +371,7 @@ function openEmergency() {
 
 function openProfile() {
   router.push({
-    path: '/health-monitor/employee-profile',
+    name: 'ImmersiveBody',
     query: {
       empCode: props.userCode,
       empName: resolvedName.value,

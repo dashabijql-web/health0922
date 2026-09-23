@@ -258,7 +258,7 @@ function nextMonth() {
 function backToProfile() {
   if (!route.query.empCode) return
   router.push({
-    path: '/health-monitor/employee-profile',
+    name: 'ImmersiveBody',
     query: {
       empCode: route.query.empCode,
       empName: route.query.empName || ''

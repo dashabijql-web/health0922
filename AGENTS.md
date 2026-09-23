@@ -47,7 +47,7 @@ health/
 
 ## 前端路由
 
-业务路由主要定义在 `HealthShow/src/router/app-routes.mjs`、`health-monitor.mjs` 和 `alert-management.mjs`，由 `router/index.js` 统一注册，并复用懒加载的 Layout。登录和 `/auth/info` 返回的 `routes` 权限码用于前端菜单过滤；路由本身是静态注册的，实际接口访问权限仍由认证守卫和后端权限共同保证。历史入口只做隐藏重定向，不新增第二套页面实现。安全指挥中心已并入统一管控（GIS 矿图、预警趋势/类型分布图表、部门事件抽屉均已迁移到统一管控页面），`/safety-command` 系列路径保留为隐藏重定向，不再单独维护页面；统一管控保留当前版实现，公共路径保持不变；懒加载导航失败会通过路由错误回调记录到浏览器控制台。
+业务路由主要定义在 `HealthShow/src/router/app-routes.ts`、`health-monitor.ts` 和 `alert-management.ts`，由 `router/index.ts` 统一注册，并复用懒加载的 Layout。登录和 `/auth/info` 返回的 `routes` 权限码用于前端菜单过滤；路由本身是静态注册的，实际接口访问权限仍由认证守卫和后端权限共同保证。安全指挥中心已并入统一管控（GIS 矿图、预警趋势/类型分布图表、部门事件抽屉均已迁移到统一管控页面，组件位于 `health-monitor/components/`），职工健康画像等历史页面已并入 3D 沉浸人体（`health-monitor/immersive-body`）。本项目当前仅本人使用，无需兼容外部旧链接：页面合并或下线后，旧路由直接删除，不保留隐藏重定向占位，避免路由文件里堆积无人访问的历史入口；改动时同步排查代码里是否还有 `router.push`/`redirect`/导航链接指向被删的旧路径。懒加载导航失败会通过路由错误回调记录到浏览器控制台。
 
 ## 后端数据流
 

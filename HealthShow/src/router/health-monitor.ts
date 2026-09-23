@@ -77,32 +77,6 @@ const healthMonitorRouter = {
   },
   children: [
     {
-      // 职工健康画像已并入 3D 沉浸人体（历史曲线、预警、AI 报告等均已迁移过去）；历史入口只做隐藏重定向
-      path: 'employee-profile',
-      name: 'EmployeeProfile',
-      hidden: true,
-      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
-    },
-    {
-      path: 'miner-portrait-showcase',
-      name: 'MinerPortraitShowcase',
-      hidden: true,
-      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
-    },
-    {
-      // 旧版 3D 健康画像已弃用，统一改用 3D 沉浸人体；历史入口只做隐藏重定向
-      path: 'health-portrait-showcase',
-      name: 'HealthPortraitShowcase',
-      hidden: true,
-      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
-    },
-    {
-      path: 'health-portrait',
-      name: 'HealthPortrait',
-      hidden: true,
-      redirect: to => ({ path: '/health-monitor/immersive-body', query: to.query })
-    },
-    {
       // 工作台日历（每日健康均值 + 预警日历视图）
       path: 'workbench',
       name: 'Workbench',

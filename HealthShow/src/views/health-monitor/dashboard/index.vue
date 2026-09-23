@@ -338,9 +338,9 @@ import {
 import DashboardPersonSearch from './components/DashboardPersonSearch.vue'
 import DashboardDialogs from './components/DashboardDialogs.vue'
 import DashboardWarningStream from './components/DashboardWarningStream.vue'
-import IncidentCommandDrawer from '../../safety-command/components/IncidentCommandDrawer.vue'
-import DepartmentIncidentDrawer from '../../safety-command/components/DepartmentIncidentDrawer.vue'
-import MineGisMap from '../../safety-command/components/MineGisMap.vue'
+import IncidentCommandDrawer from '../components/IncidentCommandDrawer.vue'
+import DepartmentIncidentDrawer from '../components/DepartmentIncidentDrawer.vue'
+import MineGisMap from '../components/MineGisMap.vue'
 import { useDashboardPage } from './use-dashboard-page'
 
 const {

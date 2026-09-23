@@ -60,7 +60,7 @@ export function createPeriodRiskMixin(config): LegacyVueOptions {
       openPeriodPortrait(item) {
         const code = item.userCode || item.empCode
         const { startDate, endDate } = this.periodRange
-        this.$router.push({ path: '/health-monitor/employee-profile', query: { empCode: code, focus: `${config.focus}-abnormal`, period: this.activePeriod, startDate, endDate } })
+        this.$router.push({ name: 'ImmersiveBody', query: { empCode: code, focus: `${config.focus}-abnormal`, period: this.activePeriod, startDate, endDate } })
       },
       openDepartmentRisk(row) {
         this.riskDrawer = { ...this.riskDrawer, visible: true, kind: 'users', key: 'department', zone: '', title: `${row.deptName} · ${this.metricPeriodLabel}${config.label}异常人员`, dept: row.deptName, page: 1, summary: null }

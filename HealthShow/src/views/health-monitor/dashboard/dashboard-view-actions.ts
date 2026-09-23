@@ -18,7 +18,7 @@ export const dashboardViewActions: LegacyVueOptions = {
     const code = item?.userCode || item?.empCode
     if (!code) return
     this.$router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: {
         empCode: code,
         empName: item.userName || item.empName || '',

@@ -227,7 +227,7 @@ function toggleFilter(level: RiskLevel | null) {
 }
 
 function goProfile(empCode: string) {
-  void router.push({ path: '/health-monitor/employee-profile', query: { empCode } })
+  void router.push({ name: 'ImmersiveBody', query: { empCode } })
 }
 
 onMounted(() => void fetchData())

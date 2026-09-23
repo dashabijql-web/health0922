@@ -21,8 +21,8 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue'
-import IncidentCommandDrawer from '@/views/safety-command/components/IncidentCommandDrawer.vue'
-import PersonDetailDrawer from '@/views/safety-command/components/PersonDetailDrawer.vue'
+import IncidentCommandDrawer from '@/views/health-monitor/components/IncidentCommandDrawer.vue'
+import PersonDetailDrawer from '@/views/health-monitor/components/PersonDetailDrawer.vue'
 
 interface EmployeeIdentity {
   empCode?: string

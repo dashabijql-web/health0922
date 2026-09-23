@@ -106,7 +106,7 @@ export function usePeriodRiskPage(config: PeriodRiskConfig) {
     const empCode = item.userCode || item.empCode
     const { startDate, endDate } = config.periodRange.value
     void router.push({
-      path: '/health-monitor/employee-profile',
+      name: 'ImmersiveBody',
       query: {
         empCode,
         focus: `${config.focus}-abnormal`,

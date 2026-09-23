@@ -3,23 +3,6 @@ import alertManagementRouter from './alert-management.ts'
 import Layout from './layout-component.ts'
 
 export const appRoutes = [
-  {
-    // 安全指挥中心已并入统一管控（GIS 地图、预警趋势/类型分布图表、部门事件抽屉均已迁移过去）；历史入口只做隐藏重定向
-    path: '/safety-command',
-    component: Layout,
-    name: 'SafetyCommand',
-    hidden: true,
-    redirect: to => ({ path: '/health-monitor/dashboard', query: to.query }),
-    children: [
-      {
-        path: 'index',
-        name: 'SafetyCommandIndex',
-        hidden: true,
-        redirect: to => ({ path: '/health-monitor/dashboard', query: to.query })
-      }
-    ]
-  },
-
   healthMonitorRouter,
 
   alertManagementRouter,
@@ -111,38 +94,6 @@ export const appRoutes = [
         }
       }
     ]
-  },
-
-  {
-    path: '/command-center',
-    redirect: '/health-monitor/dashboard',
-    hidden: true
-  },
-  {
-    path: '/monitoring-center',
-    redirect: '/health-monitor/real-time',
-    hidden: true
-  },
-  {
-    path: '/warning-center',
-    redirect: '/health-monitor/risk-warning',
-    hidden: true
-  },
-  {
-    path: '/people-center',
-    redirect: '/health-monitor/employee-archive',
-    hidden: true
-  },
-  {
-    path: '/report-ai',
-    redirect: '/health-monitor/report-center',
-    hidden: true
-  },
-
-  {
-    path: '/health-monitor/warnings',
-    redirect: '/alert-management/records',
-    hidden: true
   },
 
   {

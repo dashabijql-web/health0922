@@ -172,7 +172,7 @@ const chartPageMixin: LegacyVueOptions = {
     goToPortrait(item) {
       const code = item.userCode || item.empCode
       this.$router.push({
-        path: '/health-monitor/employee-profile',
+        name: 'ImmersiveBody',
         query: code ? { empCode: code } : { name: item.userName }
       })
     },
