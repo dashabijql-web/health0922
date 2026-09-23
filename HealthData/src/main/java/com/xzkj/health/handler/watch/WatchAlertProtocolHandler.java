@@ -13,8 +13,8 @@ public class WatchAlertProtocolHandler implements WatchProtocolHandler {
         log.warn("报警数据: IMEI={}, 数据={}", imei, alertData);
 
         String alertType = "未知";
-        if (context.paramCount() > 6) {
-            alertType = parseAlertType(context.param(6));
+        if (context.paramCount() > 5) {
+            alertType = parseAlertType(context.param(5));
         }
 
         context.dataService().saveAlert(imei, alertType, alertData);

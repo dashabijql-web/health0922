@@ -20,6 +20,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.sctp.SctpChannel;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -38,11 +39,12 @@ public class WatchDataHandler extends SimpleChannelInboundHandler<WatchMessage> 
 
     public WatchDataHandler(DeviceManagerService deviceManager,
                             DataProcessService dataService,
-                            WatchRawPacketService rawPacketService) {
+                            WatchRawPacketService rawPacketService,
+                            @Value("${health.watch.monitoring-refresh-seconds:60}") long monitoringRefreshSeconds) {
         this.deviceManager = deviceManager;
         this.dataService = dataService;
         this.rawPacketService = rawPacketService;
-        this.protocolHandlers = buildProtocolHandlers();
+        this.protocolHandlers = buildProtocolHandlers(monitoringRefreshSeconds);
     }
 
     @Override
@@ -132,10 +134,10 @@ public class WatchDataHandler extends SimpleChannelInboundHandler<WatchMessage> 
         return value == null || value.isEmpty();
     }
 
-    private Map<String, WatchProtocolHandler> buildProtocolHandlers() {
+    private Map<String, WatchProtocolHandler> buildProtocolHandlers(long monitoringRefreshSeconds) {
         Map<String, WatchProtocolHandler> handlers = new LinkedHashMap<>();
 
-        register(handlers, new WatchLoginProtocolHandler(), "AP00");
+        register(handlers, new WatchLoginProtocolHandler(monitoringRefreshSeconds), "AP00");
         register(handlers, new WatchLocationProtocolHandler(), "AP01", "AP91", "AP02", "AP92");
         register(handlers, new WatchHeartbeatProtocolHandler(), "AP03");
         register(handlers, new WatchAlertProtocolHandler(), "AP10");

@@ -18,9 +18,14 @@ public class WatchLoginProtocolHandler implements WatchProtocolHandler {
     private static final AttributeKey<ScheduledFuture<?>> MONITORING_LOOP_KEY =
             AttributeKey.valueOf("watch.monitoring.loop");
     private static final AtomicInteger SERIAL = new AtomicInteger((int) (System.currentTimeMillis() % 1_000_000L));
-    private static final long MONITORING_REFRESH_SECONDS = 60L;
     private static final long COMMAND_INTERVAL_MS = 800L;
     private static final int MONITORING_COMMAND_COUNT = 4;
+
+    private final long monitoringRefreshSeconds;
+
+    public WatchLoginProtocolHandler(long monitoringRefreshSeconds) {
+        this.monitoringRefreshSeconds = monitoringRefreshSeconds;
+    }
 
     @Override
     public void handle(WatchMessageHandlerContext context) {
@@ -55,7 +60,7 @@ public class WatchLoginProtocolHandler implements WatchProtocolHandler {
                 () -> sendMonitoringCommand(context, imei, measurementIndex.getAndUpdate(
                         current -> (current + 1) % MONITORING_COMMAND_COUNT)),
                 initialCommandCount * COMMAND_INTERVAL_MS,
-                TimeUnit.SECONDS.toMillis(MONITORING_REFRESH_SECONDS),
+                TimeUnit.SECONDS.toMillis(monitoringRefreshSeconds),
                 TimeUnit.MILLISECONDS);
         context.channel().attr(MONITORING_LOOP_KEY).set(future);
         context.channel().closeFuture().addListener(f -> {

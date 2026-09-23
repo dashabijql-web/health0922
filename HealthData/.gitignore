@@ -22,3 +22,6 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Local DB config with real credentials (never commit)
+src/main/resources/application-local.yml

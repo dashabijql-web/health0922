@@ -81,6 +81,8 @@ health:
     pre-shift-review-minutes: ${HEALTH_PRE_SHIFT_REVIEW_MINUTES:30}
     device-data-interrupted-minutes: ${HEALTH_DEVICE_DATA_INTERRUPTED_MINUTES:15}
     device-low-battery-threshold: ${HEALTH_DEVICE_LOW_BATTERY_THRESHOLD:20}
+  watch:
+    monitoring-refresh-seconds: ${HEALTH_WATCH_MONITORING_REFRESH_SECONDS:60}
 
 # ================================
 # MyBatis-Plus

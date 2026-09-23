@@ -30,8 +30,7 @@ public class WatchBehaviorAlertService {
 
     public void saveAlert(String imei, String alertType) {
         try {
-            if (alertType == null || alertType.contains("未知") || alertType.contains("低电")
-                    || alertType.contains("脱落") || alertType.contains("佩戴")) {
+            if (alertType == null) {
                 return;
             }
             Device device = deviceService.getOrCreateByImei(imei);
@@ -59,6 +58,9 @@ public class WatchBehaviorAlertService {
         if (alertType.contains("房颤")) return "AFIB";
         if (alertType.contains("拆卸")) return "TAMPER";
         if (alertType.contains("红外")) return "INFRARED";
+        if (alertType.contains("脱落")) return "DETACHED";
+        if (alertType.contains("低电")) return "LOW_BATTERY";
+        if (alertType.contains("佩戴")) return "WEAR_REMINDER";
         return "DEVICE_UNKNOWN";
     }
 }
