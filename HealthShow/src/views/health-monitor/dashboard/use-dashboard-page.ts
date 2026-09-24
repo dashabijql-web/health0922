@@ -6,6 +6,8 @@ import { createDashboardState } from './dashboard-state'
 import { useDashboardComputed } from './use-dashboard-computed'
 import { dashboardViewActions } from './dashboard-view-actions'
 import { useDashboardCharts } from './use-dashboard-charts'
+import { useDashboardData } from './use-dashboard-data'
+import { useMineAi } from './use-mine-ai'
 import { dashboardDetailMethods } from './dashboard-detail-methods'
 import { activateDashboardPage, mountDashboardPage, unmountDashboardPage } from './dashboard-lifecycle'
 import { dashboardRuntimeMethods } from './dashboard-runtime'
@@ -53,6 +55,10 @@ export function useDashboardPage(): any {
   const chartFns = useDashboardCharts(model, { computed: computedValues as any, router, unifiedTrendChart })
   // 过渡桥接：旧的运行时方法/生命周期仍通过 this.initXxx() 调用图表函数
   Object.assign(ctx, chartFns)
+  const dataFns = useDashboardData(model, { computed: computedValues as any, charts: chartFns })
+  const mineAiFns = useMineAi(model)
+  // 过渡桥接：尚未迁移的旧方法（详情/处置/生命周期）仍通过 this.fetchXxx() 调用
+  Object.assign(ctx, dataFns, mineAiFns)
   computedValues.headerMetricStripItems = computed(() => (ctx.headerKpis || []).map((item: any, index: number) => ({
     key: `${item.label}-${index}`,
     label: item.label,
@@ -108,6 +114,8 @@ export function useDashboardPage(): any {
     ...toRefs(model),
     ...Object.fromEntries(methodGroups.flatMap((methods) => Object.keys(methods)).map((name) => [name, ctx[name]])),
     ...chartFns,
+    ...dataFns,
+    ...mineAiFns,
     $router: router,
     dmScale,
     dmBody,
