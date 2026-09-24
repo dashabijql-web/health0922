@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { getMineAiReport, generateMineAiReport } from '@/api/ai'
+import { fetchDashboardWarningTrend7dData } from './dashboard-chart-data'
 import {
   buildDashboardLevelTotals,
   buildDashboardUnhandledStats,
@@ -151,8 +152,6 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
         this.initHourDistChart()
         this.initWarnTypeChart()
         this.initUnifiedTrendChart()
-        this.initDeptChart()
-        this.initDeviceCharts()
       })
     } catch {
       if (requestSeq !== this._dashboardRequestSeq || activePeriod !== this.activePeriod) return
@@ -292,6 +291,10 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
       return
     }
     this.lastRefreshText = formatDashboardRefreshText(this.lastRefreshTime)
+  },
+
+  async fetchWarningTrend7d() {
+    this.warningTrend7dData = await fetchDashboardWarningTrend7dData()
   },
 
   async fetchTop5Data() {

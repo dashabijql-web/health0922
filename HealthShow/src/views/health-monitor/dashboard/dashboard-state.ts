@@ -17,28 +17,6 @@ export function createDashboardState() {
     _dashboardRequestSeq: 0,
     checkData: {} as Row,
     personCounts: {} as Row,
-    deptPersonModal: {
-      visible: false,
-      loading: false,
-      dateRange: null,
-      chart: null
-    },
-    deptDetailModal: {
-      visible: false,
-      loading: false,
-      deptName: '',
-      dateRange: null,
-      chart: null
-    },
-    metricDetailModal: {
-      visible: false,
-      loading: false,
-      metricType: '',
-      metricLabel: '',
-      metricColor: '#00d4ff',
-      dateRange: null,
-      chart: null
-    },
     warnCurveModal: {
       visible: false,
       loading: false,

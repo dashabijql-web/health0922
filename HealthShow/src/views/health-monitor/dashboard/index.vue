@@ -292,16 +292,10 @@
     <DashboardDialogs
       :emp-drawer="empDrawer"
       :handle-dialog="handleDialog"
-      :dept-person-modal="deptPersonModal"
-      :dept-detail-modal="deptDetailModal"
-      :metric-detail-modal="metricDetailModal"
       :warn-curve-modal="warnCurveModal"
       :trend-block-title="trendBlockTitle"
       :alert-type-label="alertTypeLabel"
       :format-warn-time="formatWarnTime"
-      :load-dept-person-chart="loadDeptPersonChart"
-      :load-dept-detail-chart="loadDeptDetailChart"
-      :load-metric-detail-chart="loadMetricDetailChart"
       :init-warn-curve-chart="initWarnCurveChart"
       :submit-handle="submitHandle"
       :mine-ai-dialog="mineAiDialog"
@@ -348,15 +342,14 @@ const {
   activePeriod, admissionQueueItems, alertTypeLabel, currentIncidentEvent, currentTime,
   currentDepartment, dashboardDataError, focusPersonTotal, dashboardDataState,
   departmentDrawerEvents, departmentDrawerVisible,
-  deptDetailModal, deptPersonModal, deviceCards, empDrawer, fetchData, focusWarningEvents,
+  deviceCards, empDrawer, fetchData, focusWarningEvents,
   formatTimeAgo, formatWarnTime, goToDeviceList, goToEmployeeProfile,
   handleDepartmentHandleEvent, handleDepartmentShowEvent, handleDepartmentShowProfile,
   handleDialog, handleIncidentUpdated, handleMineAi, healthExceptionCards, healthSnapshot, healthSnapshotStatusText,
   headerMetricStripItems, incidentDrawerVisible, initHourDistChart,
   initUnifiedTrendChart, initWarnCurveChart, initWarnTypeChart, initWarningTrend7dChart,
   isFullscreen, isRefreshing, kpiUnhandledHigh,
-  lastRefreshText, loadDeptDetailChart, loadDeptPersonChart,
-  loadMetricDetailChart, metricDetailModal, mineAiDialogVisible, mineAiLoading, mineAiRendered, mineAiTime,
+  lastRefreshText, mineAiDialogVisible, mineAiLoading, mineAiRendered, mineAiTime,
   onHeaderMetricSelect, openAdmissionQueue, openDepartmentDrawer,
   openCommandIncident, openEmployeeDrawer, openHandleDialog, openWarnCurve, periodLabel,
   periodOptions, preShiftData, submitHandle, toggleMineAiPanel, switchPeriod, toggleFullscreen,

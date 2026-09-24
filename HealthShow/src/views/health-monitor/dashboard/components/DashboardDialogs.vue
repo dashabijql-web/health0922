@@ -105,102 +105,6 @@
   </el-dialog>
 
   <el-dialog
-    v-model="deptPersonModal.visible"
-    width="960px"
-    :append-to-body="true"
-    :destroy-on-close="false"
-    :show-close="false"
-    class="dm-dept-person-dialog"
-    style="background:#0a1628;border:1px solid rgba(0,212,255,0.18);border-radius:10px"
-    :header-style="{ display:'none' }"
-    :body-style="{ padding:0, background:'#0a1628' }"
-    @closed="closeDeptPersonModal"
-    @opened="handleDeptPersonOpened"
-  >
-    <div class="dm-dp-header">
-      <span class="dm-dp-header-title">部门检测人次</span>
-      <button class="dm-dp-header-close" @click="deptPersonModal.visible = false">×</button>
-    </div>
-    <div class="dm-dp-toolbar">
-      <el-date-picker
-        v-model="deptPersonModal.dateRange"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        style="width:300px;flex-shrink:0"
-        @change="handleDeptPersonOpened"
-      />
-    </div>
-    <div v-loading="deptPersonModal.loading" ref="deptPersonChartRef" style="width:100%;height:480px"></div>
-  </el-dialog>
-
-  <el-dialog
-    v-model="deptDetailModal.visible"
-    width="860px"
-    :append-to-body="true"
-    :destroy-on-close="false"
-    :show-close="false"
-    class="dm-dept-person-dialog"
-    style="background:#0a1628;border:1px solid rgba(0,212,255,0.18);border-radius:10px"
-    :header-style="{ display:'none' }"
-    :body-style="{ padding:0, background:'#0a1628' }"
-    @closed="closeDeptDetailModal"
-    @opened="handleDeptDetailOpened"
-  >
-    <div class="dm-dp-header">
-      <span class="dm-dp-header-title">{{ deptDetailModal.deptName }} — 检测 / 异常趋势</span>
-      <button class="dm-dp-header-close" @click="deptDetailModal.visible = false">×</button>
-    </div>
-    <div class="dm-dp-toolbar">
-      <el-date-picker
-        v-model="deptDetailModal.dateRange"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        style="width:300px;flex-shrink:0"
-        @change="handleDeptDetailOpened"
-      />
-    </div>
-    <div v-loading="deptDetailModal.loading" ref="deptDetailChartRef" style="width:100%;height:420px"></div>
-  </el-dialog>
-
-  <el-dialog
-    v-model="metricDetailModal.visible"
-    width="860px"
-    :append-to-body="true"
-    :destroy-on-close="false"
-    :show-close="false"
-    class="dm-dept-person-dialog"
-    style="background:#0a1628;border:1px solid rgba(0,212,255,0.18);border-radius:10px"
-    :header-style="{ display:'none' }"
-    :body-style="{ padding:0, background:'#0a1628' }"
-    @closed="closeMetricDetailModal"
-    @opened="handleMetricDetailOpened"
-  >
-    <div class="dm-dp-header">
-      <span class="dm-dp-header-title">{{ metricDetailModal.metricLabel }} — 检测 / 异常趋势</span>
-      <button class="dm-dp-header-close" @click="metricDetailModal.visible = false">×</button>
-    </div>
-    <div class="dm-dp-toolbar">
-      <el-date-picker
-        v-model="metricDetailModal.dateRange"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        style="width:300px;flex-shrink:0"
-        @change="handleMetricDetailOpened"
-      />
-    </div>
-    <div v-loading="metricDetailModal.loading" ref="metricDetailChartRef" style="width:100%;height:420px"></div>
-  </el-dialog>
-
-  <el-dialog
     v-model="warnCurveModal.visible"
     :title="warnCurveModal.title"
     width="780px"
@@ -259,8 +163,6 @@ interface DisposableChart {
   dispose: () => void
 }
 
-type DateRange = [string, string] | null
-
 interface EmployeeProfile {
   empName?: string
   deptName?: string
@@ -313,23 +215,6 @@ interface HandleDialogState {
   submitting: boolean
 }
 
-interface ChartModalState {
-  visible: boolean
-  loading: boolean
-  dateRange: DateRange
-  chart: DisposableChart | null
-}
-
-interface DeptDetailModalState extends ChartModalState {
-  deptName: string
-}
-
-interface MetricDetailModalState extends ChartModalState {
-  metricType: string
-  metricLabel: string
-  metricColor: string
-}
-
 interface WarnCurveModalState {
   visible: boolean
   loading: boolean
@@ -351,15 +236,9 @@ type ChartLoader = (element: HTMLElement | null) => void | Promise<void>
 
 const props = defineProps({
   alertTypeLabel: { type: Function as PropType<(type: string | number | undefined) => string>, required: true },
-  deptDetailModal: { type: Object as PropType<DeptDetailModalState>, required: true },
-  deptPersonModal: { type: Object as PropType<ChartModalState>, required: true },
   formatWarnTime: { type: Function as PropType<(time?: string) => string>, required: true },
   handleDialog: { type: Object as PropType<HandleDialogState>, required: true },
   initWarnCurveChart: { type: Function as PropType<ChartLoader>, required: true },
-  loadDeptDetailChart: { type: Function as PropType<ChartLoader>, required: true },
-  loadDeptPersonChart: { type: Function as PropType<ChartLoader>, required: true },
-  loadMetricDetailChart: { type: Function as PropType<ChartLoader>, required: true },
-  metricDetailModal: { type: Object as PropType<MetricDetailModalState>, required: true },
   submitHandle: { type: Function as PropType<() => void | Promise<void>>, required: true },
   trendBlockTitle: { type: String, required: true },
   warnCurveModal: { type: Object as PropType<WarnCurveModalState>, required: true },
@@ -368,9 +247,6 @@ const props = defineProps({
   regenerateMineAi: { type: Function as PropType<() => void | Promise<void>>, required: true }
 })
 
-const deptPersonChartRef = ref<HTMLElement | null>(null)
-const deptDetailChartRef = ref<HTMLElement | null>(null)
-const metricDetailChartRef = ref<HTMLElement | null>(null)
 const warnCurveChartRef = ref<HTMLElement | null>(null)
 
 function disposeChart(chart: DisposableChart | null | undefined) {
@@ -384,36 +260,9 @@ function closeEmpDrawer() {
   props.empDrawer.radarChart = null
 }
 
-function closeDeptPersonModal() {
-  disposeChart(props.deptPersonModal.chart)
-  props.deptPersonModal.chart = null
-}
-
-function closeDeptDetailModal() {
-  disposeChart(props.deptDetailModal.chart)
-  props.deptDetailModal.chart = null
-}
-
-function closeMetricDetailModal() {
-  disposeChart(props.metricDetailModal.chart)
-  props.metricDetailModal.chart = null
-}
-
 function closeWarnCurveModal() {
   disposeChart(props.warnCurveModal.chart)
   props.warnCurveModal.chart = null
-}
-
-function handleDeptPersonOpened() {
-  props.loadDeptPersonChart(deptPersonChartRef.value)
-}
-
-function handleDeptDetailOpened() {
-  props.loadDeptDetailChart(deptDetailChartRef.value)
-}
-
-function handleMetricDetailOpened() {
-  props.loadMetricDetailChart(metricDetailChartRef.value)
 }
 
 function handleWarnCurveOpened() {

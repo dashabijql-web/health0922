@@ -5,7 +5,7 @@ import { buildDashboardAdmissionQueueItems, buildDashboardClosureLaneItems, dash
 import { createDashboardState } from './dashboard-state'
 import { useDashboardComputed } from './use-dashboard-computed'
 import { dashboardViewActions } from './dashboard-view-actions'
-import { dashboardChartMethods } from './dashboard-chart-methods'
+import { useDashboardCharts } from './use-dashboard-charts'
 import { dashboardDetailMethods } from './dashboard-detail-methods'
 import { activateDashboardPage, mountDashboardPage, unmountDashboardPage } from './dashboard-lifecycle'
 import { dashboardRuntimeMethods } from './dashboard-runtime'
@@ -35,7 +35,6 @@ export function useDashboardPage(): any {
     dashboardRuntimeMethods,
     dashboardCommandWorkflowMethods,
     dashboardViewActions,
-    dashboardChartMethods,
     dashboardDetailMethods
   ]
   methodGroups.forEach((methods) => {
@@ -51,6 +50,9 @@ export function useDashboardPage(): any {
       get: () => value.value
     })
   })
+  const chartFns = useDashboardCharts(model, { computed: computedValues as any, router, unifiedTrendChart })
+  // 过渡桥接：旧的运行时方法/生命周期仍通过 this.initXxx() 调用图表函数
+  Object.assign(ctx, chartFns)
   computedValues.headerMetricStripItems = computed(() => (ctx.headerKpis || []).map((item: any, index: number) => ({
     key: `${item.label}-${index}`,
     label: item.label,
@@ -105,6 +107,7 @@ export function useDashboardPage(): any {
     ...computedValues,
     ...toRefs(model),
     ...Object.fromEntries(methodGroups.flatMap((methods) => Object.keys(methods)).map((name) => [name, ctx[name]])),
+    ...chartFns,
     $router: router,
     dmScale,
     dmBody,

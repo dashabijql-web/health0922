@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import { resolveCommandCenterIncident } from '@/api/command-center'
-import { bindDashboardChart } from './dashboard-chart-methods'
+import { bindDashboardChart } from './dashboard-chart-bind'
 import {
   buildEmpTrendChartOption,
   buildEmpRadarChartOption,
