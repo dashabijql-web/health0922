@@ -62,30 +62,3 @@ export function buildDashboardAdmissionQueueItems({ preShiftData }) {
     }
   ]
 }
-
-export const dashboardCommandWorkflowMethods: LegacyVueOptions = {
-  openAdmissionQueue(item) {
-    if (item?.route) this.$router.push(item.route)
-  },
-  openCommandIncident(event) {
-    if (!event?.id || !event?.occurredAt) return
-    this.currentIncidentEvent = event
-    this.incidentDrawerVisible = true
-  },
-  openIncidentFromRoute(query) {
-    if (!query?.warningId || !query?.occurredAt) return
-    const key = `${query.warningId}:${query.occurredAt}`
-    if (this.routeIncidentKey === key) return
-    this.routeIncidentKey = key
-    this.openCommandIncident({
-      id: query.warningId,
-      incidentId: query.incidentId || '',
-      occurredAt: query.occurredAt,
-      userName: query.person || '',
-      location: query.area || ''
-    })
-  },
-  async handleIncidentUpdated() {
-    await Promise.all([this.fetchWarningEvents(), this.fetchKpiData()])
-  }
-}

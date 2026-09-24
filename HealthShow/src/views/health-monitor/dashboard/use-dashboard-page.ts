@@ -1,14 +1,16 @@
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, toRefs, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { buildDashboardAdmissionQueueItems, buildDashboardClosureLaneItems, dashboardCommandWorkflowMethods } from './dashboard-command-workflow'
+import { buildDashboardAdmissionQueueItems, buildDashboardClosureLaneItems } from './dashboard-command-workflow'
+import { alertTypeLabel, formatTimeAgo, formatWarnTime } from './dashboard-format'
 import { createDashboardState } from './dashboard-state'
 import { useDashboardComputed } from './use-dashboard-computed'
-import { dashboardViewActions } from './dashboard-view-actions'
 import { useDashboardCharts } from './use-dashboard-charts'
 import { useDashboardData } from './use-dashboard-data'
 import { useMineAi } from './use-mine-ai'
-import { dashboardDetailMethods } from './dashboard-detail-methods'
+import { useDashboardActions } from './use-dashboard-actions'
+import { useDashboardDetail } from './use-dashboard-detail'
+import { useDashboardWorkflow } from './use-dashboard-workflow'
 import { activateDashboardPage, mountDashboardPage, unmountDashboardPage } from './dashboard-lifecycle'
 import { dashboardRuntimeMethods } from './dashboard-runtime'
 
@@ -34,10 +36,7 @@ export function useDashboardPage(): any {
   ctx.$refs = refs
 
   const methodGroups = [
-    dashboardRuntimeMethods,
-    dashboardCommandWorkflowMethods,
-    dashboardViewActions,
-    dashboardDetailMethods
+    dashboardRuntimeMethods
   ]
   methodGroups.forEach((methods) => {
     Object.entries(methods).forEach(([name, fn]) => {
@@ -58,7 +57,10 @@ export function useDashboardPage(): any {
   const dataFns = useDashboardData(model, { computed: computedValues as any, charts: chartFns })
   const mineAiFns = useMineAi(model)
   // 过渡桥接：尚未迁移的旧方法（详情/处置/生命周期）仍通过 this.fetchXxx() 调用
-  Object.assign(ctx, dataFns, mineAiFns)
+  const workflowFns = useDashboardWorkflow(model, { router, data: dataFns })
+  const detailFns = useDashboardDetail(model, { data: dataFns })
+  const actionFns = useDashboardActions(model, { router, route, data: dataFns, charts: chartFns, workflow: workflowFns, detail: detailFns })
+  Object.assign(ctx, dataFns, mineAiFns, workflowFns, detailFns, actionFns)
   computedValues.headerMetricStripItems = computed(() => (ctx.headerKpis || []).map((item: any, index: number) => ({
     key: `${item.label}-${index}`,
     label: item.label,
@@ -105,7 +107,7 @@ export function useDashboardPage(): any {
     unmountDashboardPage(ctx)
   })
   watch(() => route.query, (query) => {
-    ctx.openIncidentFromRoute(query)
+    workflowFns.openIncidentFromRoute(query)
   }, { immediate: true, deep: true })
 
   return {
@@ -116,6 +118,12 @@ export function useDashboardPage(): any {
     ...chartFns,
     ...dataFns,
     ...mineAiFns,
+    ...workflowFns,
+    ...detailFns,
+    ...actionFns,
+    alertTypeLabel,
+    formatTimeAgo,
+    formatWarnTime,
     $router: router,
     dmScale,
     dmBody,
