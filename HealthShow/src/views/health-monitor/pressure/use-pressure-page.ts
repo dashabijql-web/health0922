@@ -63,24 +63,10 @@ export function usePressurePage() {
   })
 
   const renderRiskTrend = (rows: MetricRow[]) => {
-    renderPeriodRiskTrend(
-      { charts, $refs: { hourlyRef: hourlyRef.value } },
-      'hourlyRef',
-      rows,
-      { bar: '#FFB84D', line: '#00d4ff' }
-    )
+    renderPeriodRiskTrend(charts, hourlyRef.value, rows, { bar: '#FFB84D', line: '#00d4ff' })
   }
   const renderRiskDepartments = (rows: MetricRow[]) => {
-    renderDepartmentRisk(
-      {
-        charts,
-        $refs: { deptRef: deptRef.value },
-        openDepartmentRisk: (row: MetricRow) => periodRisk.openDepartmentRisk(row)
-      },
-      'deptRef',
-      rows,
-      { bar: '#fb923c' }
-    )
+    renderDepartmentRisk(charts, deptRef.value, rows, (row) => periodRisk.openDepartmentRisk(row), { bar: '#fb923c' })
   }
 
   const periodRisk = usePeriodRiskPage({

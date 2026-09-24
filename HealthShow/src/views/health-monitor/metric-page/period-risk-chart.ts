@@ -1,13 +1,18 @@
 import { emptyOption, chartTooltip, categoryAxis, valueAxis, deptGrid, trendGrid } from '@/utils/echarts-config'
-import { initChart, gradH, gradV } from '@/utils/chart-helpers'
+import { initChart, gradH, gradV, type ChartStore } from '@/utils/chart-helpers'
 
 interface PeriodRiskColors {
   bar?: string
   line?: string
 }
 
-export function renderPeriodRiskTrend(page, refName, rows, colors: PeriodRiskColors = {}) {
-  const chart = initChart(page.charts, 'periodRisk', page.$refs[refName])
+export function renderPeriodRiskTrend(
+  charts: ChartStore,
+  el: HTMLElement | null | undefined,
+  rows: Array<Record<string, any>> | undefined,
+  colors: PeriodRiskColors = {}
+) {
+  const chart = initChart(charts, 'periodRisk', el)
   if (!chart) return
   if (!rows?.length) {
     chart.setOption(emptyOption('暂无周期风险数据', 13))
@@ -46,8 +51,14 @@ export function renderPeriodRiskTrend(page, refName, rows, colors: PeriodRiskCol
   })
 }
 
-export function renderDepartmentRisk(page, refName, rows, colors: PeriodRiskColors = {}) {
-  const chart = initChart(page.charts, 'dept', page.$refs[refName])
+export function renderDepartmentRisk(
+  charts: ChartStore,
+  el: HTMLElement | null | undefined,
+  rows: Array<Record<string, any>> | undefined,
+  onSelectDept: (row: Record<string, any>) => void,
+  colors: PeriodRiskColors = {}
+) {
+  const chart = initChart(charts, 'dept', el)
   if (!chart) return
   if (!rows?.length) {
     chart.setOption(emptyOption('暂无部门风险数据', 13))
@@ -74,6 +85,6 @@ export function renderDepartmentRisk(page, refName, rows, colors: PeriodRiskColo
   chart.off('click')
   chart.on('click', params => {
     const row = data[params.dataIndex]
-    if (row) page.openDepartmentRisk(row)
+    if (row) onSelectDept(row)
   })
 }

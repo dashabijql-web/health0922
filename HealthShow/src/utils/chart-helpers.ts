@@ -5,7 +5,7 @@
 import * as echarts from '@/utils/echarts-setup'
 import type { EChartsType } from 'echarts/core'
 
-interface ChartStore {
+export interface ChartStore {
   [key: string]: EChartsType | undefined
 }
 

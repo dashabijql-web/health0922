@@ -8,7 +8,7 @@ import { exportMetricRows } from '@/views/health-monitor/metric-page/metric-expo
 import { renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
 import { useMetricPageLifecycle, type MetricPeriod } from '@/views/health-monitor/metric-page/use-metric-page-lifecycle'
 import { usePeriodRiskPage } from '@/views/health-monitor/metric-page/use-period-risk-page'
-import { bloodPressureChartMethods } from './blood-pressure-chart'
+import { renderBloodPressureDept, renderBloodPressureHourly } from './blood-pressure-chart'
 
 type MetricRow = Record<string, any>
 
@@ -26,17 +26,8 @@ export function useBloodPressurePage() {
   const trendRef = ref<HTMLElement | null>(null)
   const hourlyRef = ref<HTMLElement | null>(null)
 
-  const chartPage = {
-    charts,
-    $refs: { deptRef: null as HTMLElement | null, trendRef: null as HTMLElement | null, hourlyRef: null as HTMLElement | null },
-    get filterDept() { return filterDept.value },
-    set filterDept(value: string) { filterDept.value = value }
-  }
-
-  function syncChartRefs() {
-    chartPage.$refs.deptRef = deptRef.value
-    chartPage.$refs.trendRef = trendRef.value
-    chartPage.$refs.hourlyRef = hourlyRef.value
+  const toggleDept = (name: string) => {
+    filterDept.value = filterDept.value === name ? '' : name
   }
 
   async function loadRealtime() {
@@ -55,8 +46,7 @@ export function useBloodPressurePage() {
     const sysVals = createHourlySeries(rows, 'avgSystolic')
     const diaVals = createHourlySeries(rows, 'avgDiastolic')
     await nextTick()
-    syncChartRefs()
-    bloodPressureChartMethods.initHourlyChart.call(chartPage, sysVals, diaVals)
+    renderBloodPressureHourly(charts, hourlyRef.value, sysVals, diaVals)
   }
 
   function goToPortrait(item: MetricRow) {
@@ -76,13 +66,11 @@ export function useBloodPressurePage() {
   })
 
   function renderRiskDepartments(rows: MetricRow[]) {
-    syncChartRefs()
-    bloodPressureChartMethods.initDeptChart.call(chartPage, rows)
+    renderBloodPressureDept(charts, deptRef.value, rows, toggleDept)
   }
 
   function renderRiskTrend(rows: MetricRow[]) {
-    syncChartRefs()
-    renderPeriodRiskTrend(chartPage, 'trendRef', rows, { bar: '#ff7043', line: '#38bdf8' })
+    renderPeriodRiskTrend(charts, trendRef.value, rows, { bar: '#ff7043', line: '#38bdf8' })
   }
 
   async function fetchData() {

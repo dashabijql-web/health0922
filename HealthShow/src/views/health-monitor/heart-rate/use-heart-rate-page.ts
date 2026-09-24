@@ -16,7 +16,7 @@ import { useScrollLoop } from '@/composables/useScrollLoop'
 import { useTimeoutTask } from '@/composables/useTimeoutTask'
 import { fetchMetricData } from '@/views/health-monitor/metric-page/metric-data-loader'
 import { exportMetricRows } from '@/views/health-monitor/metric-page/metric-export'
-import { heartRateChartMethods } from './heart-rate-chart'
+import { renderHeartRateDailyTrend, renderHeartRateDept } from './heart-rate-chart'
 
 type Period = 'day' | 'week' | 'month'
 type AnyRow = Record<string, any>
@@ -190,15 +190,8 @@ export function useHeartRatePage() {
     return [...dailyRiskRows.value].sort((a, b) => String(b.date).localeCompare(String(a.date)))
   })
 
-  const chartContext: AnyRow = {
-    charts,
-    get $refs() {
-      return { deptRef: deptRef.value, trendRef: trendRef.value }
-    },
-    openDepartmentDrilldown: (row: AnyRow) => openDepartmentDrilldown(row)
-  }
-  const initDept = (rows: AnyRow[]) => heartRateChartMethods.initDept.call(chartContext, rows)
-  const renderDailyRiskTrend = (rows: AnyRow[]) => heartRateChartMethods.renderDailyRiskTrend.call(chartContext, rows)
+  const initDept = (rows: AnyRow[]) => renderHeartRateDept(charts, deptRef.value, rows, (row) => openDepartmentDrilldown(row))
+  const renderDailyRiskTrend = (rows: AnyRow[]) => renderHeartRateDailyTrend(charts, trendRef.value, rows)
 
   const top5Scroll = useScrollLoop({
     getElement: () => top5ScrollRef.value,

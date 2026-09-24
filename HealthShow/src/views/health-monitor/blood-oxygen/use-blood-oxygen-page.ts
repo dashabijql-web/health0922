@@ -6,10 +6,10 @@ import { spo2Level } from '@/constants/health-thresholds'
 import { PERIOD_OPTIONS } from '@/constants/periods'
 import { fetchMetricData } from '@/views/health-monitor/metric-page/metric-data-loader'
 import { exportMetricRows } from '@/views/health-monitor/metric-page/metric-export'
-import { renderDepartmentRisk, renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
+import { renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
 import { useMetricPageLifecycle, type MetricPeriod } from '@/views/health-monitor/metric-page/use-metric-page-lifecycle'
 import { usePeriodRiskPage } from '@/views/health-monitor/metric-page/use-period-risk-page'
-import { bloodOxygenChartMethods } from './blood-oxygen-chart'
+import { renderBloodOxygenDept } from './blood-oxygen-chart'
 
 type MetricRow = Record<string, any>
 
@@ -28,17 +28,8 @@ export function useBloodOxygenPage() {
   const deptRef = ref<HTMLElement | null>(null)
   const trendRef = ref<HTMLElement | null>(null)
 
-  const chartPage = {
-    charts,
-    currentPage: 1,
-    $refs: { deptRef: null as HTMLElement | null, trendRef: null as HTMLElement | null },
-    get filterDept() { return filterDept.value },
-    set filterDept(value: string) { filterDept.value = value }
-  }
-
-  function syncChartRefs() {
-    chartPage.$refs.deptRef = deptRef.value
-    chartPage.$refs.trendRef = trendRef.value
+  const toggleDept = (name: string) => {
+    filterDept.value = filterDept.value === name ? '' : name
   }
 
   async function loadRealtime() {
@@ -69,13 +60,11 @@ export function useBloodOxygenPage() {
   })
 
   function renderRiskTrend(rows: MetricRow[]) {
-    syncChartRefs()
-    renderPeriodRiskTrend(chartPage, 'trendRef', rows, { bar: '#FFB84D', line: '#00d4ff' })
+    renderPeriodRiskTrend(charts, trendRef.value, rows, { bar: '#FFB84D', line: '#00d4ff' })
   }
 
   function renderRiskDepartments(rows: MetricRow[]) {
-    syncChartRefs()
-    bloodOxygenChartMethods.initDept.call(chartPage, rows)
+    renderBloodOxygenDept(charts, deptRef.value, rows, toggleDept)
   }
 
   async function fetchData() {
