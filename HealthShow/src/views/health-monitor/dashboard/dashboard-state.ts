@@ -1,6 +1,9 @@
 import { markRaw } from 'vue'
 
-export function createDashboardPageState() {
+type Row = Record<string, any>
+
+/** 统一管控页的全部页面状态（一个 reactive 对象，由各个 useDashboardXxx 组合函数共同读写） */
+export function createDashboardState() {
   return {
     currentTime: '',
     _timeTask: null,
@@ -12,8 +15,8 @@ export function createDashboardPageState() {
     _onVisibilityChange: null,
     _fullscreenHandler: null,
     _dashboardRequestSeq: 0,
-    checkData: {},
-    personCounts: {},
+    checkData: {} as Row,
+    personCounts: {} as Row,
     deptPersonModal: {
       visible: false,
       loading: false,
@@ -45,16 +48,16 @@ export function createDashboardPageState() {
       records: [],
       chart: null
     },
-    bodyIndicators: {},
-    healthSnapshot: null,
-    top5Data: [],
-    deptDataList: [],
-    deptPersonStatsList: [],
-    warningRates: [],
-    deviceStats: { total: 0, activeRate: 0, usageRate: 0, warningRate: 0 },
-    warningEvents: [],
-    warningStreamTotals: null,
-    warningTypesData: [],
+    bodyIndicators: {} as Row,
+    healthSnapshot: null as Row | null,
+    top5Data: [] as Row[],
+    deptDataList: [] as Row[],
+    deptPersonStatsList: [] as Row[],
+    warningRates: [] as Row[],
+    deviceStats: { total: 0, activeRate: 0, usageRate: 0, warningRate: 0 } as Row,
+    warningEvents: [] as Row[],
+    warningStreamTotals: null as { total: number; pending: number; handled: number } | null,
+    warningTypesData: [] as Row[],
     isFullscreen: false,
     seenAlertIds: markRaw(new Set()),
     mineAiReport: '',
@@ -95,15 +98,15 @@ export function createDashboardPageState() {
       submitting: false
     },
     incidentDrawerVisible: false,
-    currentIncidentEvent: null,
+    currentIncidentEvent: null as Row | null,
     routeIncidentKey: '',
     isRefreshing: false,
     // Tracks the aggregate dashboard request separately from the realtime snapshot.
     // A failed request must not be rendered as the initial all-zero state.
     dashboardDataState: 'idle',
     dashboardDataError: '',
-    dashboardMissingSections: [],
-    lastRefreshTime: null,
+    dashboardMissingSections: [] as string[],
+    lastRefreshTime: null as number | null,
     lastRefreshText: '加载中...',
     kpiRealtimeOnline: 0,
     kpiRealtimeTotal: 0,
@@ -113,18 +116,20 @@ export function createDashboardPageState() {
     kpiCriticalTotal: 0,
     kpiMidTotal: 0,
     kpiLowTotal: 0,
-    commandSummary: null,
+    commandSummary: null as Row | null,
     VITAL_NORMAL_RANGES: {
       heartRate: { max: 15 },
       bloodOxygen: { max: 10 },
       temperature: { max: 10 },
       pressure: { max: 20 }
     },
-    trendDailyData: [],
-    warningDistData: { labels: [], counts: [] },
-    warningTrend7dData: [],
+    trendDailyData: [] as Row[],
+    warningDistData: { labels: [], counts: [] } as Row,
+    warningTrend7dData: [] as Row[],
     departmentDrawerVisible: false,
-    currentDepartment: null,
-    preShiftData: { totalToday: null, qualifiedCount: null, failedCount: null, preShiftRate: null }
+    currentDepartment: null as string | null,
+    preShiftData: { totalToday: null, qualifiedCount: null, failedCount: null, preShiftRate: null } as Row
   }
 }
+
+export type DashboardState = ReturnType<typeof createDashboardState>

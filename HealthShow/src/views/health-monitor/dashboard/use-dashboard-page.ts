@@ -2,8 +2,8 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { buildDashboardAdmissionQueueItems, buildDashboardClosureLaneItems, dashboardCommandWorkflowMethods } from './dashboard-command-workflow'
-import { dashboardComputed } from './dashboard-computed'
-import { createDashboardPageState } from './dashboard-page-state'
+import { createDashboardState } from './dashboard-state'
+import { useDashboardComputed } from './use-dashboard-computed'
 import { dashboardViewActions } from './dashboard-view-actions'
 import { dashboardChartMethods } from './dashboard-chart-methods'
 import { dashboardDetailMethods } from './dashboard-detail-methods'
@@ -11,7 +11,7 @@ import { activateDashboardPage, mountDashboardPage, unmountDashboardPage } from 
 import { dashboardRuntimeMethods } from './dashboard-runtime'
 
 export function useDashboardPage(): any {
-  const model = reactive(createDashboardPageState())
+  const model = reactive(createDashboardState())
   const stateRefs = toRefs(model)
   const route = useRoute()
   const router = useRouter()
@@ -43,13 +43,8 @@ export function useDashboardPage(): any {
       if (typeof fn === 'function') ctx[name] = fn.bind(ctx)
     })
   })
-  const computedValues: Record<string, any> = {}
-  Object.entries(dashboardComputed).forEach(([name, getter]) => {
-    computedValues[name] = computed(() => (getter as (this: any) => any).call(ctx))
-  })
-  // The extracted getters still compose through `this` as they did in the
-  // Options API page. Expose their unwrapped values on the shared context so
-  // one computed getter can safely depend on another.
+  const computedValues: Record<string, any> = { ...useDashboardComputed(model) }
+  // 过渡桥接：还没迁移的旧方法仍通过 this.xxx 读取计算属性，把解包后的值暴露在共享上下文上
   Object.entries(computedValues).forEach(([name, value]) => {
     Object.defineProperty(ctx, name, {
       configurable: true,
