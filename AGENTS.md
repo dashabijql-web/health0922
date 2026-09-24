@@ -50,6 +50,14 @@ health/
 
 业务路由主要定义在 `HealthShow/src/router/app-routes.ts`、`health-monitor.ts` 和 `alert-management.ts`，由 `router/index.ts` 统一注册，并复用懒加载的 Layout。登录和 `/auth/info` 返回的 `routes` 权限码用于前端菜单过滤；路由本身是静态注册的，实际接口访问权限仍由认证守卫和后端权限共同保证。安全指挥中心已并入统一管控（GIS 矿图、预警趋势/类型分布图表、部门事件抽屉均已迁移到统一管控页面，组件位于 `health-monitor/components/`），职工健康画像等历史页面已并入 3D 沉浸人体（`health-monitor/immersive-body`）。本项目当前仅本人使用，无需兼容外部旧链接：页面合并或下线后，旧路由直接删除，不保留隐藏重定向占位，避免路由文件里堆积无人访问的历史入口；改动时同步排查代码里是否还有 `router.push`/`redirect`/导航链接指向被删的旧路径。懒加载导航失败会通过路由错误回调记录到浏览器控制台。
 
+## 前端代码约定
+
+- 所有页面组件都是 `<script setup>`，不再使用 Options API：没有 `this`、mixin、`data()/methods`。页面逻辑放在同目录的 `use-*-page.ts` 组合函数里（组合函数 = 以 `use` 开头、返回状态和方法的普通函数），模板只从它的返回值里解构。
+- 图表拆成纯函数，写在同目录的 `*-charts.ts` 里，形如 `renderXxx(charts, el, data, 回调)`：图表实例仓库、容器元素、数据和点击回调都显式传入，函数里不读页面状态。
+- 一个页面逻辑很多时（如统一管控 `views/health-monitor/dashboard/`），用一个 `reactive` 状态对象加若干按职责拆分的组合函数，依赖方向单向无环：计算属性 -> 图表 -> 数据加载 -> 工作流/详情 -> 页面操作 -> 生命周期，最后由 `use-dashboard-page.ts` 组装。
+- 前端用 hash 路由，页面地址是 `/#/health-monitor/...`。
+- 改前端页面后运行 `node tools/frontend-smoke.cjs --interact`（见“测试与验收”）。改动大的页面，先在改之前固定浏览器时间和接口样本、录下基线（页面文字、图表数、弹层内容、截图），每改一步都与基线对比。
+
 ## 后端数据流
 
 手表数据流为：TCP 字节流 -> `WatchProtocolDecoder` -> `WatchDataHandler`/协议处理器 -> 设备与人员绑定解析 -> `DataProcessService` 及 `service/watch/*`。绑定数据先进入 Redis 缓冲并异步批量写入 SQL Server 月分表；体征阈值判断和设备行为预警在业务处理链路中独立执行，不以本批数据先完成落库为前提。

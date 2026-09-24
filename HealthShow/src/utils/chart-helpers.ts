@@ -32,7 +32,7 @@ export function gradH(c1, c2) {
  * Returns the chart instance, or null if refEl is missing.
  *
  * Usage:
- *   const c = initChart(this.charts, 'dist', this.$refs.distRef)
+ *   const c = initChart(charts, 'dist', distRef.value)   // charts 是页面里的 ChartStore，distRef 是模板 ref
  *   if (c) c.setOption({ ... })
  */
 export function initChart(charts: ChartStore, key: string, refEl: HTMLElement | null | undefined) {
