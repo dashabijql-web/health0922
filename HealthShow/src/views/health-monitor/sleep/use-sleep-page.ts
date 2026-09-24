@@ -61,8 +61,9 @@ export function useSleepPage() {
   const stageLegend = ref<LegendItem[]>([])
   const durationLegend = ref<LegendItem[]>([])
   const deptUploadList = ref<DeptUpload[]>([])
-  // 昨夜睡眠异常预警：后端目前没有提供这份数据，列表恒为空，页面显示“昨夜无睡眠异常预警”
+  // 昨夜睡眠不足6小时的人员（最多20人）及其总人数，来自后端 /sleep/page-data
   const alertList = ref<SleepRecord[]>([])
+  const alertTotal = ref(0)
   const detailList = ref<SleepRecord[]>([])
   const currentPage = ref(1)
   const recordDialog = reactive<{ visible: boolean; item: SleepRecord | null }>({ visible: false, item: null })
@@ -122,6 +123,8 @@ export function useSleepPage() {
         if (d.categoryLegend?.length) stageLegend.value = d.categoryLegend
         if (d.detailList?.length) detailList.value = d.detailList
         if (d.deptUpload?.length) deptUploadList.value = d.deptUpload
+        alertList.value = d.alertList || []
+        alertTotal.value = d.alertTotal || 0
         deptUpload = d.deptUpload || []
       }
     } catch { /* 接口失败时保留已有数据，图表按现有数据绘制 */ }
@@ -236,6 +239,7 @@ export function useSleepPage() {
 
   return {
     alertList,
+    alertTotal,
     bedtimeRef,
     bedtimeTips: BEDTIME_TIPS,
     currentPage,

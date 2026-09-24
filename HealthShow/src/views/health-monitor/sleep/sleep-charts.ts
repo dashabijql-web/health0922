@@ -1,11 +1,10 @@
-import dayjs from 'dayjs'
 import { emptyOption } from '@/utils/echarts-config'
 import { gradV, initChart, type ChartStore } from '@/utils/chart-helpers'
 
 export interface LegendItem { name: string; value: number; color: string }
 export interface ScoreBucket { label: string; count: number; color: string }
 export interface DeptUpload { deptName: string; count: number }
-export interface TrendData { dates?: string[]; avgData?: number[]; hours?: number[]; scores?: number[] }
+export interface TrendData { dates?: string[]; avgData?: number[]; scores?: number[] }
 /** 点击图表时给用户的提示，由页面决定怎么显示（这里传 ElMessage.info）。 */
 export type Notify = (text: string) => void
 
@@ -67,10 +66,16 @@ export function renderSleepScore(charts: ChartStore, el: HTMLElement | null | un
 
 export function renderSleepTrend(charts: ChartStore, el: HTMLElement | null | undefined, data: TrendData, notify: Notify) {
   const c = initChart(charts, 'trend', el); if (!c) return
-  const fbDates = Array.from({ length: 30 }, (_, i) => dayjs().subtract(29 - i, 'day').format('MM/DD'))
-  const dates = data.dates || fbDates
-  const hours = data.avgData || data.hours || new Array(dates.length).fill(0)
-  const scores = data.scores || hours.map((h) => (h >= 8 ? 90 : h >= 7 ? 75 : h >= 6 ? 60 : h > 0 ? 40 : 0))
+  const dates = data.dates || []
+  if (!dates.length) {
+    c.setOption(emptyOption('暂无睡眠趋势数据', 13))
+    return
+  }
+  const hours = data.avgData || []
+  const scores = data.scores || []
+  const hasScores = scores.length === dates.length
+  // 标签间隔按日期个数自适应：最多显示约 7 个，避免点数少时只剩第一个标签
+  const labelInterval = Math.max(0, Math.ceil(dates.length / 7) - 1)
   c.setOption({
     backgroundColor: 'transparent',
     tooltip: {
@@ -78,14 +83,14 @@ export function renderSleepTrend(charts: ChartStore, el: HTMLElement | null | un
       backgroundColor: 'rgba(8,13,35,0.92)', borderColor: 'rgba(167,139,250,0.3)',
       textStyle: { color: '#e0f0ff', fontSize: 11 },
       formatter: (p) => `${p[0].name}<br/>
-        <span style="color:#a78bfa">睡眠时长：${p[0].value}h</span><br/>
-        <span style="color:#52c41a">质量评分：${p[1]?.value ?? '--'}分</span>`
+        <span style="color:#a78bfa">睡眠时长：${Number(p[0].value).toFixed(1)}h</span>` +
+        (hasScores ? `<br/><span style="color:#52c41a">质量评分：${p[1]?.value ?? '--'}分</span>` : '')
     },
     grid: { left: '5%', right: '5%', top: '10%', bottom: '12%', containLabel: true },
     xAxis: {
       type: 'category', data: dates, boundaryGap: true,
       axisLine: { lineStyle: { color: 'rgba(167,139,250,0.18)' } }, axisTick: { show: false },
-      axisLabel: { color: '#8ba6c8', fontSize: 10, interval: 4 }
+      axisLabel: { color: '#8ba6c8', fontSize: 10, interval: labelInterval }
     },
     yAxis: [
       {
@@ -106,6 +111,7 @@ export function renderSleepTrend(charts: ChartStore, el: HTMLElement | null | un
     series: [
       {
         name: '睡眠时长', type: 'bar', yAxisIndex: 0, data: hours, barWidth: '55%',
+        cursor: 'pointer',
         itemStyle: {
           color: gradV('rgba(167,139,250,0.9)', 'rgba(167,139,250,0.18)'),
           borderRadius: [3, 3, 0, 0]
@@ -116,7 +122,7 @@ export function renderSleepTrend(charts: ChartStore, el: HTMLElement | null | un
             label: { color: '#FFB84D', fontSize: 10, formatter: '建议7h' } }]
         }
       },
-      {
+      ...(hasScores ? [{
         name: '质量评分', type: 'line', yAxisIndex: 1, data: scores, smooth: true, symbol: 'none',
         lineStyle: { color: '#52c41a', width: 2 },
         areaStyle: { color: gradV('rgba(82,196,26,0.18)', 'rgba(82,196,26,0.02)') },
@@ -128,12 +134,12 @@ export function renderSleepTrend(charts: ChartStore, el: HTMLElement | null | un
             { type: 'min', itemStyle: { color: '#ff5252' }, label: { color: '#ff5252', formatter: (p) => '▼' + p.value } }
           ]
         }
-      }
+      }] : [])
     ]
   })
   c.on('click', (params) => {
     if (params.seriesName === '睡眠时长') {
-      notify(`${params.name} 睡眠时长：${params.value}h`)
+      notify(`${params.name} 睡眠时长：${Number(params.value).toFixed(1)}h`)
     } else if (params.seriesName === '质量评分') {
       notify(`${params.name} 质量评分：${params.value}分`)
     }

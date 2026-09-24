@@ -74,7 +74,7 @@
           <div class="sl-ph">
             <span class="sl-ph-bar" style="background:linear-gradient(180deg,#ff5252,rgba(255,82,82,0.3))"></span>
             <span class="sl-ph-title">昨日睡眠异常预警</span>
-            <span class="sl-alert-count">{{ alertList.length }} 人</span>
+            <span class="sl-alert-count">{{ alertTotal }} 人</span>
           </div>
           <div class="sl-alert-body">
             <div v-if="!alertList.length" class="sl-alert-empty">昨夜无睡眠异常预警</div>
@@ -266,6 +266,7 @@ import { useSleepPage } from './use-sleep-page'
 
 const {
   alertList,
+  alertTotal,
   bedtimeRef,
   bedtimeTips,
   currentPage,

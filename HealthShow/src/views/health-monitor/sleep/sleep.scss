@@ -4,7 +4,7 @@ $accent: #a78bfa;
 @import '@/styles/hm-layout';
 $cyan:   #00d4ff;
 
-@include hm-body('sl', $gap: 8px, $pad: 8px);
+@include hm-body('sl', $gap: 8px, $pad: 8px, $aside: 304px);
 @include hm-main('sl', $gap: 8px);
 @include hm-panel('sl');
 

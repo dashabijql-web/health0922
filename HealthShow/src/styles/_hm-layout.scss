@@ -8,10 +8,10 @@
   50%      { opacity: 0.45; transform: scale(0.75); }
 }
 
-@mixin hm-body($p, $gap: 10px, $pad: 10px) {
+@mixin hm-body($p, $gap: 10px, $pad: 10px, $aside: 260px) {
   .#{$p}-bd {
     flex: 1; display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: $aside minmax(0, 1fr);
     grid-template-rows: 1fr;
     gap: $gap; padding: $pad;
     overflow: hidden; min-height: 0;

@@ -3,6 +3,7 @@ package com.xzkj.health.service;
 import com.xzkj.health.common.MapValueUtil;
 import com.xzkj.health.config.datasource.HealthCacheKeys;
 import com.xzkj.health.config.datasource.HealthAsyncQueryExecutor;
+import com.xzkj.health.dto.sleep.SleepAlertView;
 import com.xzkj.health.dto.sleep.SleepDeptUploadView;
 import com.xzkj.health.dto.sleep.SleepDetailItemView;
 import com.xzkj.health.dto.sleep.SleepLegendItemView;
@@ -57,6 +58,7 @@ public class SleepService {
         List<Double> avgData = new ArrayList<>();
         List<Double> deepSleep = new ArrayList<>();
         List<Double> lightSleep = new ArrayList<>();
+        List<Double> scores = new ArrayList<>();
 
         for (Map<String, Object> item : trendData) {
             String date = (String) item.get("date");
@@ -64,9 +66,10 @@ public class SleepService {
             avgData.add(MapValueUtil.getDouble(item, "avgSleepHours"));
             deepSleep.add(MapValueUtil.getDouble(item, "avgDeepSleep"));
             lightSleep.add(MapValueUtil.getDouble(item, "avgLightSleep"));
+            scores.add(Math.round(MapValueUtil.getDouble(item, "avgScore") * 10) / 10.0);
         }
 
-        SleepTrendView result = new SleepTrendView(dates, avgData, deepSleep, lightSleep);
+        SleepTrendView result = new SleepTrendView(dates, avgData, deepSleep, lightSleep, scores);
         trendCache.put(cacheKey, result, CACHE_TTL_MILLIS);
         return result;
     }
@@ -121,13 +124,16 @@ public class SleepService {
         CompletableFuture<Map<String, Object>> categoryFuture = supply(sleepMapper::getSleepCategoryDistribution);
         CompletableFuture<List<Map<String, Object>>> deptFuture = supply(sleepMapper::getDeptUploadStats);
         CompletableFuture<List<Map<String, Object>>> detailFuture = supply(sleepMapper::getLatestSleepDetails);
+        CompletableFuture<List<Map<String, Object>>> poorSleepersFuture =
+                supply(() -> sleepMapper.getLastNightPoorSleepers(recentSleepSource()));
 
         CompletableFuture.allOf(
                 lastNightOverviewFuture,
                 durationFuture,
                 categoryFuture,
                 deptFuture,
-                detailFuture
+                detailFuture,
+                poorSleepersFuture
         ).join();
 
         Map<String, Object> lastNightOverview = lastNightOverviewFuture.join();
@@ -135,6 +141,7 @@ public class SleepService {
         Map<String, Object> categoryData   = categoryFuture.join();
         List<Map<String, Object>> deptStats = deptFuture.join();
         List<Map<String, Object>> details   = detailFuture.join();
+        List<Map<String, Object>> poorSleepers = poorSleepersFuture.join();
 
         double avgSleepTime = MapValueUtil.getDouble(lastNightOverview, "avgSleepTime");
         int hours = (int) avgSleepTime;
@@ -196,13 +203,30 @@ public class SleepService {
             ));
         }
 
+        List<SleepAlertView> alertList = new ArrayList<>();
+        int alertTotal = 0;
+        for (Map<String, Object> row : poorSleepers == null ? Collections.<Map<String, Object>>emptyList() : poorSleepers) {
+            double sleepHours = MapValueUtil.getDouble(row, "sleepHours");
+            boolean severe = sleepHours < 4;
+            alertTotal = (int) MapValueUtil.getLong(row, "totalCount");
+            alertList.add(new SleepAlertView(
+                    stringValue(row.get("userName")),
+                    severe ? "danger" : "warn",
+                    severe ? "严重不足" : "偏少",
+                    String.format("%.1fh", sleepHours),
+                    stringValue(row.get("deptName"))
+            ));
+        }
+
         SleepPageDataView result = new SleepPageDataView(
                 overview,
                 durationLegend,
                 categoryLegend,
                 toDeptUploadViews(deptStats),
                 detailList,
-                totalCount
+                totalCount,
+                alertList,
+                alertTotal
         );
         pageDataCache.put(cacheKey, result, CACHE_TTL_MILLIS);
         return result;

@@ -50,6 +50,36 @@ public interface SleepMapper {
     Map<String, Object> getLastNightOverviewDirect(@Param("tableSource") String tableSource);
 
     /**
+     * 昨夜（有睡眠数据的最近一天）睡眠不足6小时的人员，按睡眠时长从少到多，最多20人。
+     * totalCount 是满足条件的总人数，不受 TOP 20 截断影响。
+     * 「昨夜」的取法和 getLastNightOverviewDirect 完全一致。
+     */
+    @Select("WITH LastSleepDate AS ( " +
+            "  SELECT TOP 1 CAST(record_time AS DATE) AS last_date " +
+            "  FROM ${tableSource} latest_src " +
+            "  WHERE sleep_minutes > 0 AND sleep_minutes < 1440 " +
+            "  ORDER BY record_time DESC " +
+            "), Nightly AS ( " +
+            "  SELECT hr.user_code, " +
+            "         MAX(CAST(hr.sleep_minutes AS FLOAT) / 60.0) AS sleepHours " +
+            "  FROM ${tableSource} hr " +
+            "  JOIN LastSleepDate ld ON hr.record_time >= ld.last_date AND hr.record_time < DATEADD(DAY, 1, ld.last_date) " +
+            "  WHERE hr.sleep_minutes > 0 AND hr.sleep_minutes < 1440 " +
+            "  GROUP BY hr.user_code " +
+            ") " +
+            "SELECT TOP 20 " +
+            "  ISNULL(e.emp_name, n.user_code) AS userName, " +
+            "  ISNULL(d.dept_name, '未知部门') AS deptName, " +
+            "  n.sleepHours AS sleepHours, " +
+            "  COUNT(*) OVER () AS totalCount " +
+            "FROM Nightly n " +
+            "LEFT JOIN employee e ON n.user_code = e.emp_code " +
+            "LEFT JOIN department d ON e.dept_id = d.id " +
+            "WHERE n.sleepHours < 6 " +
+            "ORDER BY n.sleepHours ASC")
+    List<Map<String, Object>> getLastNightPoorSleepers(@Param("tableSource") String tableSource);
+
+    /**
      * 获取睡眠统计数据（最近30天）
      */
     @Select("SELECT " +
@@ -71,7 +101,12 @@ public interface SleepMapper {
             "CONVERT(VARCHAR(10), record_time, 23) AS date, " +
             "AVG(CAST(sleep_minutes AS FLOAT)) / 60.0 AS avgSleepHours, " +
             "0 AS avgDeepSleep, " +
-            "0 AS avgLightSleep " +
+            "0 AS avgLightSleep, " +
+            "AVG(CAST(CASE " +
+            "  WHEN sleep_minutes / 60.0 >= 8 THEN 90 " +
+            "  WHEN sleep_minutes / 60.0 >= 7 THEN 75 " +
+            "  WHEN sleep_minutes / 60.0 >= 6 THEN 60 " +
+            "  ELSE 40 END AS FLOAT)) AS avgScore " +
             "FROM v_health_record " +
             "WHERE sleep_minutes IS NOT NULL " +
             "AND record_time >= DATEADD(DAY, -#{days}, GETDATE()) " +
