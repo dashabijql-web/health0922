@@ -15,6 +15,8 @@ import {
   buildDashboardTop5DisplayData,
   buildDashboardVitalCards
 } from './dashboard-view-model'
+import { buildDashboardAdmissionQueueItems, buildDashboardClosureLaneItems } from './dashboard-command-workflow'
+import { normalizeHeaderMetricNote, resolveHeaderMetricTone } from './dashboard-format'
 import type { DashboardState } from './dashboard-state'
 
 /** 统一管控页的派生数据（只读计算属性），全部来自 state，不带副作用 */
@@ -289,6 +291,26 @@ export function useDashboardComputed(state: DashboardState) {
     })
   })
 
+  /** 顶部指标条：把 headerKpis 整理成页面直接渲染的条目 */
+  const headerMetricStripItems = computed(() => (headerKpis.value || []).map((item: any, index: number) => ({
+    key: `${item.label}-${index}`,
+    label: item.label,
+    value: item.valHtml ? String(item.valHtml).replace(/<[^>]+>/g, ' ') : String(item.val ?? '--'),
+    note: normalizeHeaderMetricNote(item.sub),
+    tone: resolveHeaderMetricTone(item.cls),
+    clickable: Boolean(item.clickable),
+    route: item.route
+  })))
+  const closureLaneItems = computed(() => buildDashboardClosureLaneItems({
+    warningSummary: state.commandSummary?.warning,
+    preShiftData: state.preShiftData
+  }))
+  const admissionQueueItems = computed(() => buildDashboardAdmissionQueueItems({
+    preShiftData: state.preShiftData
+  }))
+  const primaryVitalCards = computed(() => (vitalCards.value || []).slice(0, 6))
+  const supplementalVitalCards = computed(() => (vitalCards.value || []).slice(6))
+
   return {
     mineAiRendered,
     dashboardAiSummary,
@@ -321,6 +343,11 @@ export function useDashboardComputed(state: DashboardState) {
     warnTypeData,
     departmentDrawerEvents,
     riskDeptList,
-    deviceCards
+    deviceCards,
+    headerMetricStripItems,
+    closureLaneItems,
+    admissionQueueItems,
+    primaryVitalCards,
+    supplementalVitalCards
   }
 }

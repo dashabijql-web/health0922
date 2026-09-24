@@ -109,7 +109,12 @@ export function useDashboardActions(
     return fetchData(true)
   }
 
+  function onHeaderMetricSelect(item) {
+    if (item?.route) void router.push(item.route)
+  }
+
   return {
+    onHeaderMetricSelect,
     goToEmployeeProfile,
     openDepartmentDrawer,
     handleDepartmentShowEvent,

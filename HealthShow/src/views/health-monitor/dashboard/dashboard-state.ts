@@ -6,14 +6,6 @@ type Row = Record<string, any>
 export function createDashboardState() {
   return {
     currentTime: '',
-    _timeTask: null,
-    _refreshTask: null,
-    _kpiRefreshTask: null,
-    _refreshTextTask: null,
-    _resizeTask: null,
-    _resizeHandler: null,
-    _onVisibilityChange: null,
-    _fullscreenHandler: null,
     _dashboardRequestSeq: 0,
     checkData: {} as Row,
     personCounts: {} as Row,
@@ -43,7 +35,7 @@ export function createDashboardState() {
     mineAiLoading: false,
     mineAiDialogVisible: false,
     charts: markRaw({}),
-    _chartRetryCounts: markRaw({}),
+    _chartRetryCounts: markRaw({}) as Record<string, number>,
     _chartRetryToken: 0,
     metricList: [
       { key: 'heartRate', label: '心率', color: '#00d4ff', icon: 'Monitor' },

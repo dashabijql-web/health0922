@@ -20,3 +20,19 @@ export function formatTimeAgo(timestamp) {
   if (hours < 24) return `${hours}小时前`
   return dayjs(timestamp).format('MM-DD HH:mm')
 }
+
+/** 顶部指标条的色调：kpi-red -> danger 等 */
+export function resolveHeaderMetricTone(cls: string) {
+  if (cls === 'kpi-red') return 'danger'
+  if (cls === 'kpi-orange') return 'warning'
+  if (cls === 'kpi-green' || cls === 'kpi-teal') return 'success'
+  return 'primary'
+}
+
+/** 顶部指标条的备注：压成一行，最多 18 个字 */
+export function normalizeHeaderMetricNote(note: unknown) {
+  if (!note) return ''
+  const normalized = String(note).replace(/\s+/g, ' ').trim()
+  if (normalized === '数据加载中...') return '等待刷新'
+  return normalized.length > 18 ? `${normalized.slice(0, 18)}…` : normalized
+}
