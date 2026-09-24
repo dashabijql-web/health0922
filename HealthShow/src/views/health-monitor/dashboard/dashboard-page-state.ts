@@ -12,7 +12,6 @@ export function createDashboardPageState() {
     _onVisibilityChange: null,
     _fullscreenHandler: null,
     _dashboardRequestSeq: 0,
-    onDutyStats: { onDuty: 0, offDuty: 0, abnormal: 0 },
     checkData: {},
     personCounts: {},
     deptPersonModal: {
@@ -54,6 +53,7 @@ export function createDashboardPageState() {
     warningRates: [],
     deviceStats: { total: 0, activeRate: 0, usageRate: 0, warningRate: 0 },
     warningEvents: [],
+    warningStreamTotals: null,
     warningTypesData: [],
     isFullscreen: false,
     seenAlertIds: markRaw(new Set()),

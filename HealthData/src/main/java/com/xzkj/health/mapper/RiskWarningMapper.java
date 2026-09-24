@@ -239,6 +239,14 @@ public interface RiskWarningMapper {
             @Param("offset") int offset,
             @Param("size") int size);
 
+    /** Count distinct people with warnings in the same exact timestamp window as the incident feed. */
+    @SelectProvider(type = WarningTimeWindowSqlProvider.class, method = "countUsers")
+    int countWarningUsersByTimeWindow(
+            @Param("level") String level,
+            @Param("handled") Boolean handled,
+            @Param("startAt") String startAt,
+            @Param("endAt") String endAt);
+
     /** Count warnings in the same exact timestamp window as the incident feed. */
     @SelectProvider(type = WarningTimeWindowSqlProvider.class, method = "count")
     int countWarningsByTimeWindow(

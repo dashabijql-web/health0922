@@ -13,7 +13,7 @@ export function buildDashboardClosureLaneItems({
       value: critical,
       note: '通知页优先处置',
       tone: critical > 0 ? 'danger' : 'success',
-      route: '/alert-management/notifications'
+      route: '/alert-management/records?handleStatus=unhandled'
     },
     {
       key: 'pending',
@@ -29,7 +29,7 @@ export function buildDashboardClosureLaneItems({
       value: unassigned,
       note: '尚未明确处置责任人',
       tone: unassigned > 0 ? 'warning' : 'success',
-      route: '/alert-management/notifications'
+      route: '/alert-management/records?handleStatus=unhandled'
     },
     {
       key: 'overdue',
@@ -37,7 +37,7 @@ export function buildDashboardClosureLaneItems({
       value: overdue,
       note: '已配置 SLA 且超过时限',
       tone: overdue > 0 ? 'danger' : 'success',
-      route: '/alert-management/notifications'
+      route: '/alert-management/records?handleStatus=unhandled'
     }
   ]
 }

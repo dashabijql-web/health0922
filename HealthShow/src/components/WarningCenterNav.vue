@@ -38,7 +38,7 @@ const route = useRoute()
 
 const items: WarningCenterNavItem[] = [
   { path: '/health-monitor/risk-warning', label: '总览', icon: TrendCharts, matches: ['/health-monitor/risk-warning'] },
-  { path: '/alert-management/records', label: '处置记录', icon: Document, matches: ['/alert-management/records', '/alert-management/notifications'] },
+  { path: '/alert-management/records', label: '处置记录', icon: Document, matches: ['/alert-management/records'] },
   { path: '/alert-management/config', label: '规则配置', icon: Setting, matches: ['/alert-management/config'] },
   { path: '/alert-management/sos', label: '设备紧急事件', icon: WarningFilled, matches: ['/alert-management/sos'] }
 ]

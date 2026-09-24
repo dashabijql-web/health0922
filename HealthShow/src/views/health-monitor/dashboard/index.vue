@@ -43,7 +43,7 @@
           <el-icon><MagicStick /></el-icon>
           <span>全矿 AI 研判</span>
         </button>
-        <button type="button" class="uc-tool-btn" @click="$router.push('/alert-management/notifications')">
+        <button type="button" class="uc-tool-btn" @click="$router.push('/alert-management/records?handleStatus=unhandled')">
           <el-icon><FirstAidKit /></el-icon>
           <span>风险事件中心</span>
         </button>
@@ -128,6 +128,7 @@
             <DashboardWarningStream
               class="uc-warning-stream"
               :warning-events="warningEvents"
+              :totals="warningStreamTotals"
               :format-time-ago="formatTimeAgo"
               :open-warn-curve="openWarnCurve"
               :open-handle-dialog="openHandleDialog"
@@ -172,7 +173,7 @@
             <div class="uc-head-title">
               <span class="uc-pip uc-pip--warn"></span>
               <h2>重点人员</h2>
-              <span class="uc-head-sub">{{ focusWarningEvents.length }} 人持续观察</span>
+              <span class="uc-head-sub">{{ focusPersonTotal ?? '--' }} 人持续观察</span>
             </div>
             <button type="button" class="uc-panel-link" @click="$router.push('/health-monitor/risk-warning')">更多人员 ›</button>
           </div>
@@ -345,7 +346,7 @@ import { useDashboardPage } from './use-dashboard-page'
 
 const {
   activePeriod, admissionQueueItems, alertTypeLabel, currentIncidentEvent, currentTime,
-  currentDepartment, dashboardDataError, dashboardDataState,
+  currentDepartment, dashboardDataError, focusPersonTotal, dashboardDataState,
   departmentDrawerEvents, departmentDrawerVisible,
   deptDetailModal, deptPersonModal, deviceCards, empDrawer, fetchData, focusWarningEvents,
   formatTimeAgo, formatWarnTime, goToDeviceList, goToEmployeeProfile,
@@ -359,7 +360,7 @@ const {
   onHeaderMetricSelect, openAdmissionQueue, openDepartmentDrawer,
   openCommandIncident, openEmployeeDrawer, openHandleDialog, openWarnCurve, periodLabel,
   periodOptions, preShiftData, submitHandle, toggleMineAiPanel, switchPeriod, toggleFullscreen,
-  top5DisplayData, top5Max, trendBlockTitle, trendPanelSubtitle, unifiedTrendChart, warnCurveModal, warningEvents,
+  top5DisplayData, top5Max, trendBlockTitle, trendPanelSubtitle, unifiedTrendChart, warnCurveModal, warningEvents, warningStreamTotals,
   $router, dmScale, dmBody
 } = useDashboardPage()
 

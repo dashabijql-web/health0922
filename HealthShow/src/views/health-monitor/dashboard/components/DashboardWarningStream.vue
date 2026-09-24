@@ -6,8 +6,9 @@
           <span class="dm-event-title">实时预警流</span>
         </div>
         <div class="dm-event-summary">
-          <span class="dm-event-chip is-pending">待处理 {{ pendingCount }}</span>
-          <span class="dm-event-chip">已处理 {{ handledCount }}</span>
+          <span class="dm-event-chip is-pending">待处理 {{ totals ? totals.pending : '--' }}</span>
+          <span class="dm-event-chip">已处理 {{ totals ? totals.handled : '--' }}</span>
+          <span v-if="totals && totals.total > warningEvents.length" class="dm-event-chip">今日 {{ totals.total }} 条，展示最新 {{ warningEvents.length }} 条</span>
         </div>
       </div>
       <div
@@ -59,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type PropType } from 'vue'
+import { onMounted, ref, watch, type PropType } from 'vue'
 import { useScrollLoop } from '@/composables/useScrollLoop'
 import PageEmptyState from '@/components/health-shell/PageEmptyState.vue'
 import {
@@ -90,13 +91,12 @@ const props = defineProps({
   openCommandIncident: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
   openDepartmentDrawer: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
   openWarnCurve: { type: Function as PropType<(event: WarningEvent) => void>, required: true },
-  warningEvents: { type: Array as PropType<WarningEvent[]>, required: true }
+  warningEvents: { type: Array as PropType<WarningEvent[]>, required: true },
+  totals: { type: Object as PropType<{ total: number; pending: number; handled: number } | null>, default: null }
 })
 
 const warningListMid = ref<HTMLElement | null>(null)
 const warnHovered = ref(false)
-const handledCount = computed(() => props.warningEvents.filter((event) => event.handled).length)
-const pendingCount = computed(() => Math.max(0, props.warningEvents.length - handledCount.value))
 
 const warningScroll = useScrollLoop({
   getElement: () => warningListMid.value,

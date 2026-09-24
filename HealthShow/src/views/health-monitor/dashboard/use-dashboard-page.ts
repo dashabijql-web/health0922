@@ -74,11 +74,6 @@ export function useDashboardPage(): any {
   }))
   computedValues.primaryVitalCards = computed(() => (ctx.vitalCards || []).slice(0, 6))
   computedValues.supplementalVitalCards = computed(() => (ctx.vitalCards || []).slice(6))
-  computedValues.dashboardHeroDescription = computed(() => {
-    const pending = (ctx.warningEvents || []).filter((item: any) => !item.handled).length
-    return `${ctx.periodLabel}重点关注 ${pending} 条待处理预警、入井健康准入和趋势变化。`
-  })
-
   ctx.resolveHeaderMetricTone = (cls: string) => {
     if (cls === 'kpi-red') return 'danger'
     if (cls === 'kpi-orange') return 'warning'

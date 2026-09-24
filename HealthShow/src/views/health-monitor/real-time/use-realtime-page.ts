@@ -226,7 +226,7 @@ export function useRealtimePage() {
     currentPage.value = 1
     void nextTick(() => fetchOnlineUsers())
   }
-  const openWarningCenter = () => void router.push('/alert-management/notifications')
+  const openWarningCenter = () => void router.push('/alert-management/records?handleStatus=unhandled')
   const showUserDetail = (row: RealtimeRow) => {
     detailUser.value = row
     detailVisible.value = true

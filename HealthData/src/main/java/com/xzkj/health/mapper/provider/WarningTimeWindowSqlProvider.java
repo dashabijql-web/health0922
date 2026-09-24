@@ -64,6 +64,14 @@ public final class WarningTimeWindowSqlProvider {
                 + levelAndHandled(params);
     }
 
+    /** 同一时间窗内出现预警的去重人数（同一个人多条预警只算一次）。 */
+    public static String countUsers(Map<String, Object> params) {
+        return "SELECT COUNT(DISTINCT wr.user_code) FROM " + source(params) + " wr "
+                + "WHERE wr.create_time >= CONVERT(DATETIME, #{startAt}) "
+                + "AND wr.create_time < CONVERT(DATETIME, #{endAt})"
+                + levelAndHandled(params);
+    }
+
     private static String source(Map<String, Object> params) {
         LocalDateTime start = parseDateTime(params.get("startAt"));
         LocalDateTime end = parseDateTime(params.get("endAt"));

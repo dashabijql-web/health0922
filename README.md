@@ -8,7 +8,7 @@
 health/
 ├── HealthShow/                    Vue 3 + Vite 前端
 ├── HealthData/                    Spring Boot 后端
-└── tools/                         启动、探针和运行辅助脚本
+└── tools/                         手表模拟器、抓包与协议探针脚本、数据库备份
 ```
 
 主要技术栈：
@@ -22,7 +22,7 @@ health/
 
 - Java 21
 - Maven 3.8+
-- Node.js 18+ 与 npm
+- Node.js 18+ 与 pnpm（前端锁文件是 `pnpm-lock.yaml`）
 - Python 3
 - Redis
 - SQL Server 2022（当前项目使用老库 `health`）
@@ -33,13 +33,13 @@ health/
 
 ### macOS
 
-先准备名为 `local-mssqlserver2022` 的 SQL Server Docker 容器，然后在不同终端中执行：
+仓库目前没有一键启动脚本，需要按顺序手动启动：
 
-```bash
-tools/run-redis-mac.sh
-tools/run-backend-mac.sh
-tools/run-frontend-mac.sh
-```
+1. SQL Server：准备名为 `local-mssqlserver2022` 的 Docker 容器，映射到 `1433`。
+2. Redis：本机启动，监听 `6379`。
+3. 后端：在 `HealthData/` 用 Maven 运行，或在 IDE 里运行 `HealthApplication`。
+4. 前端：在 `HealthShow/` 运行 `pnpm dev`。
+5. 需要演示数据时，再运行 `tools/watch_tcp_simulator_1000.py`（模拟 1000 块手表，启动前确认没有其他实例）。
 
 数据库连接建议通过环境变量配置：
 
@@ -49,6 +49,8 @@ export DB_PORT=1433
 export DB_USERNAME=sa
 export DB_PASSWORD='<your-local-password>'
 ```
+
+用 IDE 启动时，也可以激活 `local` profile，它会读取 `HealthData/src/main/resources/application-local.yml`（已加入 `.gitignore`，不会提交）。
 
 ## 服务地址
 
@@ -73,7 +75,7 @@ curl -I http://127.0.0.1:9528/
 
 ## 数据库边界
 
-当前 checkout 的 HTTP 业务、手表协议链路和模拟器共用一个数据库连接池。本地启动脚本通过 `DB_NAME=health` 固定连接老库，用于模拟器、演示数据和非空数据回归。
+当前 checkout 的 HTTP 业务、手表协议链路和模拟器共用一个数据库连接池。`application.yml` 里 `DB_NAME` 默认就是 `health`，所以不设置环境变量时固定连接老库，用于模拟器、演示数据和非空数据回归。
 
 后端不再提供请求级数据库切换机制。客户端发送的 `X-Health-Data-Source` 或历史 `Health-Data-Source` Cookie 都不会参与数据库选择。
 
@@ -81,5 +83,5 @@ curl -I http://127.0.0.1:9528/
 
 根目录 [AGENTS.md](AGENTS.md) 是本仓库唯一的详细协作与运行事实源。修改代码前请先阅读其中的数据源路由、认证、手表协议和 Git 操作约定；代码、配置和实际运行结果优先于文档。
 
-本仓库只有一个 Git 根目录，`HealthShow` 和 `HealthData` 都不是独立仓库。新手长期教学和 agent 交接状态统一记录在 [docs/项目新手教学交接状态.md](docs/项目新手教学交接状态.md)，不要再新增其他分散的教学文档。除 `README.md` 和 `AGENTS.md` 外，新增或重命名的 Markdown 文件使用中文文件名；所有 Markdown 尽量使用普通中文、短句和清楚的例子，技术词第一次出现时要解释。
+本仓库只有一个 Git 根目录，`HealthShow` 和 `HealthData` 都不是独立仓库。除 `README.md` 和 `AGENTS.md` 外，新增或重命名的 Markdown 文件使用中文文件名；所有 Markdown 尽量使用普通中文、短句和清楚的例子，技术词第一次出现时要解释。
 

@@ -3,23 +3,9 @@ import Layout from './layout-component.ts'
 export default {
   path: '/alert-management',
   component: Layout,
-  redirect: '/health-monitor/risk-warning',
   name: 'AlertManagement',
   meta: { title: '风险事件中心', icon: 'Bell' },
   children: [
-    {
-      path: 'notifications',
-      name: 'NotificationCenter',
-      redirect: () => ({ path: '/alert-management/records', query: { handleStatus: 'unhandled' } }),
-      meta: {
-        title: '待办事件',
-        icon: 'Bell',
-        permCode: 'alert:notifications',
-        activeMenu: '/health-monitor/risk-warning',
-        navGroup: 'warning',
-        navOrder: 12
-      }
-    },
     {
       path: 'sos',
       name: 'SosPage',

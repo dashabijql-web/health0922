@@ -61,6 +61,7 @@ public class CommandCenterDashboardSummaryService {
         // 待处理是工作流状态，跟产生日期无关，用独立的滚动窗口，不随 period 切换器变化。
         int pendingTotal = countWarnings(null, false, pendingStartAt, endAt);
         int criticalPending = countWarnings("高危", false, pendingStartAt, endAt);
+        int pendingPersonToday = riskWarningService.countWarningUsersByTimeWindow(null, false, startAt, endAt);
         Map<String, Object> workflow = incidentMapper.getOpenWorkflowSummary(pendingStartAt, endAt);
         int assignedOpen = intValue(workflow == null ? null : workflow.get("assignedOpen"));
         int overdueOpen = intValue(workflow == null ? null : workflow.get("overdueOpen"));
@@ -80,7 +81,8 @@ public class CommandCenterDashboardSummaryService {
                         criticalPending,
                         pendingTotal,
                         Math.max(0, pendingTotal - assignedOpen),
-                        overdueOpen),
+                        overdueOpen,
+                        pendingPersonToday),
                 new CommandCenterDashboardSummaryView.AdmissionSummary(
                         admission.qualifiedCount(),
                         admission.failedCount(),

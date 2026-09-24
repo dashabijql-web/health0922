@@ -16,7 +16,9 @@ public record CommandCenterDashboardSummaryView(
             int criticalPending,
             int pendingTotal,
             int unassignedTotal,
-            int overdueTotal
+            int overdueTotal,
+            /** 今日范围内存在待处理预警的去重人数（同一人多条只算一次）。 */
+            int pendingPersonToday
     ) {
     }
 

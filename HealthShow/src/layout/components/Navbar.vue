@@ -6,7 +6,7 @@
     </div>
 
     <div class="right-menu">
-      <div class="warning-badge-btn" @click="$router.push('/alert-management/notifications')" title="查看待办事件">
+      <div class="warning-badge-btn" @click="$router.push('/alert-management/records?handleStatus=unhandled')" title="查看待办事件">
         <el-badge :value="pendingWarnings" :hidden="pendingWarnings === 0" :max="99" type="danger">
           <span class="warn-icon">
             <el-icon><Bell /></el-icon>

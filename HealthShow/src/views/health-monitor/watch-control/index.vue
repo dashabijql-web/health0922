@@ -460,7 +460,7 @@ async function sendTextMessage() {
     return
   }
   await sendProtocolCommand('BP40', [nextSerial(), unicodeHex(messageText.value)], {
-    successText: '文字命令已发送'
+    successText: '文字命令已下发，终端效果未验证'
   })
 }
 
@@ -535,7 +535,7 @@ async function sendProtocolCommand(
   sendingProtocol.value = protocolCode
   try {
     const response = await submitWatchCommand({ imei, protocolCode, params })
-    ElMessage.success(options.successText || `命令已发送：${response.data?.rawCommand || protocolCode}`)
+    ElMessage.success(options.successText || `命令已下发，终端效果未验证：${response.data?.rawCommand || protocolCode}`)
     await loadCommandLogs()
   } catch (error) {
     ElMessage.error(errorMessage(error, `${protocolCode} 发送失败`))

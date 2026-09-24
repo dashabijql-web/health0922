@@ -20,7 +20,7 @@
 health/
 ├── HealthShow/                     Vue 3 前端
 ├── HealthData/                     Spring Boot 后端
-└── tools/                          macOS 启动、数据库和手表诊断工具
+└── tools/                          手表模拟器、抓包与协议探针脚本、数据库备份
 ```
 
 后端使用 Java 21，默认通过 `HealthApplication.main()` 运行；交付产物使用 Maven 构建为可执行 JAR。依赖及版本以 `package.json`、锁文件和 `pom.xml` 为准，未经任务要求不升级依赖。
@@ -33,6 +33,7 @@ health/
 | 后端 HTTP | `http://localhost:8080/health` | Spring Boot API |
 | 后端健康 | `http://localhost:8080/health/actuator/health` | 顶层 `status=UP` 才算可用 |
 | 手表 TCP | `9000/tcp` | 手表私有 TCP 协议入口；后端由 Netty 监听，默认绑定所有网络接口 |
+| 手表 SCTP | `9001/sctp` | 仅 Linux 生产环境使用，默认关闭（`netty.sctp.enabled=false`） |
 | Redis | `127.0.0.1:6379` | 后端手表健康数据批量写库缓冲、实时快照和在线索引 |
 | SQL Server | `127.0.0.1:1433` | 业务数据库 |
 
@@ -87,12 +88,12 @@ health/
 - 查询、详情、确认、分派、处理、误报、时间线和外部动作共用服务端事件状态。迁移脚本须在两个项目中分别执行，并明确作用于各自数据库。
 - `IncidentCommandDrawer` 是跨页面共享的处置入口（统一管控、3D 沉浸人体等），跨页保留事件、人员、区域和项目上下文；成功后重新读取服务端状态，不能只修改前端数组。
 - 呼叫、广播、撤离只能在具体事件详情中发起。外部系统未接入时记录 `NOT_CONFIGURED` 审计，界面不得显示”已下发”。班前复检、责任人、SLA、设备中断等后端事实未接入时显示”未接入/未分派”，不得用 `0` 或虚构人员填充。
-- `GET /command-center/dashboard-summary` 是指挥摘要权威来源。`period=day|week|month` 返回对应周期的 `periodNew`；预警总数、高危待办、待办总数、未分派和超时必须以后端聚合为准，不能从前端已加载事件条数推算。
+- `GET /command-center/dashboard-summary` 是指挥摘要权威来源。`period=day|week|month` 返回对应周期的 `periodNew`；预警总数、高危待办、待办总数、未分派、超时和今日待处理去重人数（`pendingPersonToday`）必须以后端聚合为准，不能从前端已加载事件条数推算。
 - 统一管控可以展示真实设备覆盖、去重后的重点风险人员、事件范围和趋势，但不得恢复模拟体征趋势、均摊处理率、样本冒充全量、重复事件列表或无具体事件上下文的批量呼叫。未经用户确认，不做大幅信息删减或恢复。
 
 ### 风险事件分类与处置不变量
 
-目标是将不同触发机制结构化区分，同时复用统一处置生命周期：体征越界属于 `HEALTH_THRESHOLD`，手表主动上报属于 `DEVICE_ALARM`，趋势预测属于 `TREND_WARNING`。`SOS` 只是 `DEVICE_ALARM` 下的一种事件代码，任何高危体征记录都不得被页面或接口冒充为 SOS。
+目标是将不同触发机制结构化区分，同时复用统一处置生命周期：体征越界属于 `HEALTH_THRESHOLD`，手表主动上报属于 `DEVICE_ALARM`。趋势预警页由 `TrendWarningService` 实时计算，不写入预警表，不属于风险事件。`SOS` 只是 `DEVICE_ALARM` 下的一种事件代码，任何高危体征记录都不得被页面或接口冒充为 SOS。
 
 不可破坏的口径：
 
@@ -104,12 +105,12 @@ health/
 人员快速处置：
 
 - `GET /employee/command-search` 按姓名、工号、手机号或 IMEI 搜索当前项目数据库中的人员、绑定设备和 Netty 在线状态。
-- `PersonDetailDrawer` 是指挥中心、统一管控和职工健康画像共用的人员入口。已绑定手表才启用文字消息和单人语音；未绑定设备必须禁用下发。
+- `PersonDetailDrawer` 是人员联系处置入口，目前只在 3D 沉浸人体（`ImmersiveBodyCommandLayer`，`contact` 模式）里使用；统一管控的人员搜索选中后跳转到 3D 沉浸人体画像页，再由它打开该抽屉。已绑定手表才启用文字消息和单人语音；未绑定设备必须禁用下发。
 - SOS 只能表示手表主动上报的求救事件，管理端不得伪造“发送 SOS”。人员抽屉的应急处置只能关联该人员已有未处理预警，并以 `warningId + occurredAt` 打开事件抽屉。
 
 ## 实时监控与健康画像口径
 
-- `/health-monitor/real-time` 在线窗口默认 15 分钟，由 `HEALTH_REALTIME_ONLINE_WINDOW_MINUTES` 配置；体征新鲜度默认 5 分钟，由 `HEALTH_REALTIME_FRESHNESS_MINUTES` 配置。
+- `/health-monitor/real-time` 在线窗口默认 20 分钟，由 `HEALTH_REALTIME_ONLINE_WINDOW_MINUTES` 配置；体征新鲜度默认 12 分钟，由 `HEALTH_REALTIME_FRESHNESS_MINUTES` 配置。
 - 心率分析的部门异常图直接展示各部门偏低、偏高心率记录数，不在前端换算百分比；数值轴使用“条”，悬浮提示展示两类记录数及异常合计。
 - 实时状态使用 `normal`、`warning`、`stale`、`no_data`。刷新失败保留上次数据并显示失败/缓存状态；不能用当前请求时间掩盖设备采集时间，也不能丢掉后端 `stale=true`。
 - 快照按人员在窗口内为每个指标取最新非空值；筛选、总数、摘要和分页由后端完成，不能用当前已加载数组长度冒充总人数或异常数。
@@ -126,16 +127,14 @@ health/
 
 ### macOS
 
-仓库提供：
+仓库目前没有一键启动脚本，`tools/` 里只有模拟器、抓包脚本和数据库备份。需要自己按下面的顺序准备：
 
-```bash
-tools/run-redis-mac.sh
-tools/run-backend-mac.sh
-tools/run-frontend-mac.sh
-tools/sqlcmd-docker.sh
-```
+1. SQL Server：使用名为 `local-mssqlserver2022` 的 Docker 容器，映射到 `1433`。
+2. Redis：本机启动，监听 `6379`。
+3. 后端：在 `HealthData/` 用 Maven 运行，或在 IDE 里运行 `HealthApplication`。数据库密码通过 `DB_PASSWORD` 环境变量提供；也可以用 IDE 启动配置激活 `local` profile（读取 `application-local.yml`，该文件已加入 `.gitignore`，固定连接老库 `health`）。
+4. 前端：在 `HealthShow/` 运行 `pnpm dev`（锁文件是 `pnpm-lock.yaml`，开发脚本是 `vite`）。代理目标默认 `VITE_TARGET=http://localhost:8080`，写在 `.env.development`。
 
-Mac 原生运行前需准备 Java 21、Maven、Node/npm、Python 和 Redis；SQL Server 使用名为 `local-mssqlserver2022` 的 Docker 容器映射到 `1433`。后端脚本从容器读取 SQL 密码并固定使用老库 `health`，前端脚本默认 `VITE_TARGET=http://localhost:8080`。启动后逐项检查 `6379/8080/9000/9528/1433`，停止后再次检查监听端口，不能只凭进程信息判断已停止。
+Mac 原生运行需要 Java 21、Maven、Node、pnpm、Python 和 Redis。启动后逐项检查 `6379/8080/9000/9528/1433`，停止后再次检查监听端口，不能只凭进程信息判断已停止。
 
 ## 模拟器与手表协议
 
@@ -161,10 +160,10 @@ Mac 原生运行前需准备 Java 21、Maven、Node/npm、Python 和 Redis；SQL
 
 ## 观测、性能与安全
 
-- Actuator 指标入口是 `/health/actuator/metrics`。排障重点关注数据库路由、手表链路、Redis 缓冲、预警、AI 调用和 SQL 耗时。
+- Actuator 指标入口是 `/health/actuator/metrics`。指标名以 `health.` 开头（如 `health.buffer.*`、`health.watch.online.count`、`health.ai.*`、`health.warning.dedup.total`），另有 MyBatis 查询耗时统计。排障重点关注手表链路、Redis 缓冲、预警、AI 调用和 SQL 耗时。
 - 慢查询阈值由 `HEALTH_SLOW_QUERY_THRESHOLD_MS` 控制，默认 `500ms`。排障先看 Actuator、后端日志、Redis 队列和 SQL，再看 controller 日志。
 - 前端性能问题分别判断 JavaScript/Node、浏览器渲染与 ECharts、网络/视频解码，不把“资源占用”当成单一指标。保留产品需要的视觉信息，不为降低负载擅自删业务内容。
-- AI 聊天支持受控 Text2SQL 和报告能力。SQL 动态列结果必须经过白名单、参数化和结果集封装；禁止把用户输入直接拼 SQL，禁止在提示词或日志中泄露 token、密码、个人敏感健康信息。AI 规则提示不是医学诊断，AI 报告是用户主动触发的二级能力。
+- AI 聊天支持受控 Text2SQL 和报告能力。大模型生成的 SQL 由 `AiSqlGuard` 校验后经 `SqlExecutorMapper` 用 `${sql}` 字符串替换执行，**不是参数化**：只允许 `SELECT`，禁止 `INSERT/UPDATE/DELETE/DROP/EXEC` 等关键字，只能查询 `V_HEALTH_RECORD`、`V_WARNING_RECORD`、`EMPLOYEE`、`DEPARTMENT`、`JOB_TYPE` 五个表或视图，强制 `TOP 100`，查询超时 15 秒。放宽这些限制前必须先评估风险；除此之外的业务代码禁止把用户输入直接拼 SQL，禁止在提示词或日志中泄露 token、密码、个人敏感健康信息。AI 规则提示不是医学诊断，AI 报告是用户主动触发的二级能力。
 - 外部呼叫、广播、撤离和其他设备控制必须保留审计和明确的未配置状态，不能用前端成功提示冒充外部系统已执行。
 
 ## 变更检查清单

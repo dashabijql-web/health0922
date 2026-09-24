@@ -1,8 +1,6 @@
 import dayjs from 'dayjs'
 import {
   buildDashboardAiSummary,
-  buildDispatchActionItems,
-  buildDispatchPriority,
   buildRiskDeptList,
   buildWarningTypeData,
   getFocusWarningEvents,
@@ -36,22 +34,10 @@ export const dashboardComputed: LegacyVueOptions = {
     })
   },
 
-  dispatchPriority() {
-    return buildDispatchPriority({
-      kpiUnhandledHigh: this.kpiUnhandledHigh,
-      preShiftData: this.preShiftData,
-      focusWarningEvents: this.focusWarningEvents
-    })
-  },
-
-  dispatchActionItems() {
-    return buildDispatchActionItems({
-      warningEvents: this.warningEvents,
-      focusWarningEvents: this.focusWarningEvents,
-      kpiUnhandledHigh: this.kpiUnhandledHigh,
-      periodLabel: this.periodLabel,
-      preShiftData: this.preShiftData
-    })
+  // 今日待处理预警的去重人数，来自服务端摘要；未取到时为 null，页面显示 --。
+  focusPersonTotal() {
+    const total = this.commandSummary?.warning?.pendingPersonToday
+    return Number.isFinite(total) ? total : null
   },
 
   focusWarningEvents() {
@@ -142,10 +128,6 @@ export const dashboardComputed: LegacyVueOptions = {
 
   warningRateList() {
     return this.warningRates || []
-  },
-
-  unhandledHighCount() {
-    return (this.warningEvents || []).filter((e) => !e.handled && e.level === 'danger').length
   },
 
   headerKpis() {

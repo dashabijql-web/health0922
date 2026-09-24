@@ -304,7 +304,7 @@ async function sendMessage() {
   try {
     const response = await sendWatchMessage(resolvedImei.value, text)
     if (response.code !== 200) throw new Error(response.message)
-    ElMessage.success('文字消息已发送')
+    ElMessage.success('文字消息已下发，终端效果未验证')
     messageVisible.value = false
   } catch (error) {
     ElMessage.error(error?.message || '消息发送失败')
@@ -340,7 +340,7 @@ async function sendVoice() {
   try {
     const response = await sendVoiceMessage(resolvedImei.value, voiceTemplateId.value)
     if (response.code !== 200) throw new Error(response.message)
-    ElMessage.success('语音播报已发送')
+    ElMessage.success('语音播报已下发，终端效果未验证')
     voiceVisible.value = false
   } catch (error) {
     ElMessage.error(error?.message || '语音播报失败')

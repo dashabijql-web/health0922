@@ -1,7 +1,6 @@
 import dayjs from 'dayjs'
 import { getMineAiReport, generateMineAiReport } from '@/api/ai'
 import {
-  buildDashboardAbnormalUserCount,
   buildDashboardLevelTotals,
   buildDashboardUnhandledStats,
   collectDashboardNewDangerEvents,
@@ -148,10 +147,6 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
         this.dashboardDataState = 'partial'
         this.lastRefreshText = '部分更新'
       }
-      const total = this.deviceStats.total || 0
-      const onDutyCount = Math.round(total * (this.deviceStats.usageRate || 0) / 100)
-      this.onDutyStats.onDuty = onDutyCount
-      this.onDutyStats.offDuty = total - onDutyCount
       this.$nextTick(() => {
         this.initHourDistChart()
         this.initWarnTypeChart()
@@ -333,10 +328,10 @@ export const dashboardRuntimeMethods: LegacyVueOptions = {
 
   async fetchWarningEvents(requestSeq?: number) {
     const currentRequestSeq = requestSeq ?? this._dashboardRequestSeq
-    const warningEvents = await fetchDashboardWarningEventState()
+    const { events: warningEvents, totals } = await fetchDashboardWarningEventState()
     if (currentRequestSeq !== this._dashboardRequestSeq) return
     this.warningEvents = warningEvents
-    this.onDutyStats.abnormal = buildDashboardAbnormalUserCount(this.warningEvents)
+    this.warningStreamTotals = totals
     const unhandled = buildDashboardUnhandledStats(this.warningEvents)
     const levelTotals = buildDashboardLevelTotals(this.warningEvents)
     if (!this.commandSummary) {

@@ -11,7 +11,7 @@ export const NAV_GROUPS = [
     path: '/__nav__/warning',
     singleEntry: true,
     parentGroup: 'command',
-    preferredPaths: ['/health-monitor/risk-warning', '/alert-management/notifications']
+    preferredPaths: ['/health-monitor/risk-warning']
   },
   { key: 'people', title: '人员中心', icon: 'UserFilled', order: 4, path: '/__nav__/people' },
   { key: 'report', title: '报告与AI', icon: 'Document', order: 5, path: '/__nav__/report' },
@@ -45,7 +45,7 @@ export const MOBILE_NAV_SLOTS = [
     icon: 'Bell',
     label: '预警',
     groups: ['warning'],
-    preferredPaths: ['/health-monitor/risk-warning', '/alert-management/notifications']
+    preferredPaths: ['/health-monitor/risk-warning']
   },
   {
     key: 'people',

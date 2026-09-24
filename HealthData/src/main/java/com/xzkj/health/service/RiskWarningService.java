@@ -121,6 +121,10 @@ public class RiskWarningService {
         return riskWarningMapper.countWarningsByTimeWindow(level, handled, startAt, endAt);
     }
 
+    public int countWarningUsersByTimeWindow(String level, Boolean handled, String startAt, String endAt) {
+        return riskWarningMapper.countWarningUsersByTimeWindow(level, handled, startAt, endAt);
+    }
+
     /**
      * Looks up one warning by its monthly-table-safe locator: id plus createTime.
      * A bare id is retained only as a backward-compatible fallback for legacy callers.

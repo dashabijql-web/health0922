@@ -91,16 +91,6 @@ export function formatDashboardRefreshText(lastRefreshTime) {
   return `${Math.floor(secs / 60)}分钟前`
 }
 
-export function buildDashboardAbnormalUserCount(warningEvents) {
-  const abnormalUsers = new Set(
-    (warningEvents || [])
-      .filter((event) => !event.handled)
-      .map((event) => event.userCode)
-      .filter(Boolean)
-  )
-  return abnormalUsers.size
-}
-
 export function collectDashboardNewDangerEvents(warningEvents, seenAlertIds) {
   return (warningEvents || []).filter((event) => {
     if (event.level !== 'danger' || event.handled || !event.id || seenAlertIds.has(event.id)) {
@@ -269,19 +259,23 @@ export async function fetchDashboardDeviceState(periodRange) {
   }
 }
 
+// 预警流只展示今日最新 50 条；待处理/已处理总数由服务端按同一"今日"范围统计，不用已加载条数推算。
 export async function fetchDashboardWarningEventState() {
   try {
-    const res = await getCommandCenterIncidents({
-      scope: 'today',
-      status: 'ALL',
-      page: 1,
-      size: 50
-    }, DASHBOARD_REQUEST_OPTIONS)
-    if (res.code === 200 && Array.isArray(res.data?.items)) {
-      return res.data.items.map(mapDashboardWarningEvent)
+    const [listRes, openRes] = await Promise.all([
+      getCommandCenterIncidents({ scope: 'today', status: 'ALL', page: 1, size: 50 }, DASHBOARD_REQUEST_OPTIONS),
+      getCommandCenterIncidents({ scope: 'today', status: 'OPEN', page: 1, size: 1 }, DASHBOARD_REQUEST_OPTIONS)
+    ])
+    if (listRes.code === 200 && Array.isArray(listRes.data?.items)) {
+      const total = Number.isFinite(listRes.data.total) ? listRes.data.total : null
+      const pending = openRes.code === 200 && Number.isFinite(openRes.data?.total) ? openRes.data.total : null
+      return {
+        events: listRes.data.items.map(mapDashboardWarningEvent),
+        totals: total === null || pending === null ? null : { total, pending, handled: Math.max(0, total - pending) }
+      }
     }
   } catch {}
-  return []
+  return { events: [], totals: null }
 }
 
 export async function fetchDashboardDeptState(periodRange, force = false) {
