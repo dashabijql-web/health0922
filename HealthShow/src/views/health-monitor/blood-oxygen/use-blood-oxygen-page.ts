@@ -6,10 +6,9 @@ import { spo2Level } from '@/constants/health-thresholds'
 import { PERIOD_OPTIONS } from '@/constants/periods'
 import { fetchMetricData } from '@/views/health-monitor/metric-page/metric-data-loader'
 import { exportMetricRows } from '@/views/health-monitor/metric-page/metric-export'
-import { renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
+import { renderDepartmentRisk, renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
 import { useMetricPageLifecycle, type MetricPeriod } from '@/views/health-monitor/metric-page/use-metric-page-lifecycle'
 import { usePeriodRiskPage } from '@/views/health-monitor/metric-page/use-period-risk-page'
-import { renderBloodOxygenDept } from './blood-oxygen-chart'
 
 type MetricRow = Record<string, any>
 
@@ -20,17 +19,12 @@ export function useBloodOxygenPage() {
   const top5Data = ref<MetricRow[]>([])
   const realtimeList = ref<MetricRow[]>([])
   const anomalyExpanded = ref(false)
-  const filterDept = ref('')
   const detailItem = ref<MetricRow | null>(null)
   const detailVisible = ref(false)
   const charts: Record<string, any> = {}
   const top5ScrollRef = ref<HTMLElement | null>(null)
   const deptRef = ref<HTMLElement | null>(null)
   const trendRef = ref<HTMLElement | null>(null)
-
-  const toggleDept = (name: string) => {
-    filterDept.value = filterDept.value === name ? '' : name
-  }
 
   async function loadRealtime() {
     const rows = await fetchMetricData(() => getRealtimeBloodOxygen(1000), [])
@@ -64,7 +58,7 @@ export function useBloodOxygenPage() {
   }
 
   function renderRiskDepartments(rows: MetricRow[]) {
-    renderBloodOxygenDept(charts, deptRef.value, rows, toggleDept)
+    renderDepartmentRisk(charts, deptRef.value, rows, (row) => periodRisk.openDepartmentRisk(row), { bar: '#FFB84D' })
   }
 
   async function fetchData() {
@@ -95,8 +89,7 @@ export function useBloodOxygenPage() {
   const top5Max = computed(() => top5Data.value.length ? Math.max(...top5Data.value.map((item) => item.abnormalCount || 0)) : 1)
   const displayedTop5 = computed(() => top5Data.value.slice(0, 10))
   const top5Title = computed(() => ({ day: '今日', week: '近7日', month: '近30日' })[activePeriod.value] + '异常频次 Top 10')
-  const filteredRealtimeList = computed(() => filterDept.value ? realtimeList.value.filter((item) => item.deptName === filterDept.value) : realtimeList.value)
-  const boAnomalyList = computed(() => filteredRealtimeList.value.filter((item) => item.bloodOxygen < 95))
+  const boAnomalyList = computed(() => realtimeList.value.filter((item) => item.bloodOxygen < 95))
   const displayedBoAnomalyList = computed(() => anomalyExpanded.value ? boAnomalyList.value : boAnomalyList.value.slice(0, 20))
   const boZones = computed(() => {
     const summary = periodRisk.riskSummary.value

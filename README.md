@@ -8,7 +8,7 @@
 health/
 ├── HealthShow/                    Vue 3 + Vite 前端
 ├── HealthData/                    Spring Boot 后端
-└── tools/                         手表模拟器、抓包与协议探针脚本、数据库备份
+└── tools/                         手表模拟器、抓包与协议探针脚本、前端全页面冒烟检查、数据库备份
 ```
 
 主要技术栈：
@@ -72,6 +72,16 @@ export DB_PASSWORD='<your-local-password>'
 curl http://127.0.0.1:8080/health/actuator/health
 curl -I http://127.0.0.1:9528/
 ```
+
+## 前端页面检查
+
+改过前端页面后，在服务已启动的情况下运行：
+
+```bash
+node tools/frontend-smoke.cjs --interact
+```
+
+它会逐页打开所有业务页面，检查控制台报错、接口错误和图表数量，并点击部门图确认能打开抽屉。需要 `playwright-core`（项目没有声明这个依赖，需要自行安装）。详细说明写在脚本文件开头。
 
 ## 数据库边界
 

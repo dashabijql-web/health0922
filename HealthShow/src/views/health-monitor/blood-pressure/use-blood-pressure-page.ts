@@ -5,10 +5,10 @@ import { getBPRealtime, getBPHourly } from '@/api/blood-pressure'
 import { PERIOD_OPTIONS } from '@/constants/periods'
 import { createHourlySeries, fetchMetricData, getMetricToday } from '@/views/health-monitor/metric-page/metric-data-loader'
 import { exportMetricRows } from '@/views/health-monitor/metric-page/metric-export'
-import { renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
+import { renderDepartmentRisk, renderPeriodRiskTrend } from '@/views/health-monitor/metric-page/period-risk-chart'
 import { useMetricPageLifecycle, type MetricPeriod } from '@/views/health-monitor/metric-page/use-metric-page-lifecycle'
 import { usePeriodRiskPage } from '@/views/health-monitor/metric-page/use-period-risk-page'
-import { renderBloodPressureDept, renderBloodPressureHourly } from './blood-pressure-chart'
+import { renderBloodPressureHourly } from './blood-pressure-chart'
 
 type MetricRow = Record<string, any>
 
@@ -18,17 +18,12 @@ export function useBloodPressurePage() {
   const periodOptions = PERIOD_OPTIONS as Array<{ label: string; value: MetricPeriod }>
   const top5Data = ref<MetricRow[]>([])
   const realtimeList = ref<MetricRow[]>([])
-  const filterDept = ref('')
   const anomalyExpanded = ref(false)
   const charts: Record<string, any> = {}
   const top5ScrollRef = ref<HTMLElement | null>(null)
   const deptRef = ref<HTMLElement | null>(null)
   const trendRef = ref<HTMLElement | null>(null)
   const hourlyRef = ref<HTMLElement | null>(null)
-
-  const toggleDept = (name: string) => {
-    filterDept.value = filterDept.value === name ? '' : name
-  }
 
   async function loadRealtime() {
     const rows = await fetchMetricData(() => getBPRealtime(1000), [])
@@ -66,7 +61,7 @@ export function useBloodPressurePage() {
   })
 
   function renderRiskDepartments(rows: MetricRow[]) {
-    renderBloodPressureDept(charts, deptRef.value, rows, toggleDept)
+    renderDepartmentRisk(charts, deptRef.value, rows, (row) => periodRisk.openDepartmentRisk(row), { bar: '#a78bfa' })
   }
 
   function renderRiskTrend(rows: MetricRow[]) {
@@ -101,8 +96,7 @@ export function useBloodPressurePage() {
   const top5Max = computed(() => top5Data.value.length ? Math.max(...top5Data.value.map((item) => item.abnormalCount || 0)) : 1)
   const displayedTop5 = computed(() => top5Data.value.slice(0, 10))
   const top5Title = computed(() => ({ day: '今日', week: '近7日', month: '近30日' })[activePeriod.value] + '异常频次 Top 10')
-  const filteredRealtimeList = computed(() => filterDept.value ? realtimeList.value.filter((item) => item.deptName === filterDept.value) : realtimeList.value)
-  const bpAnomalyList = computed(() => filteredRealtimeList.value.filter((item) => item.systolic < 90 || item.diastolic < 60 || item.systolic >= 120 || item.diastolic >= 80))
+  const bpAnomalyList = computed(() => realtimeList.value.filter((item) => item.systolic < 90 || item.diastolic < 60 || item.systolic >= 120 || item.diastolic >= 80))
   const displayedBpAnomalyList = computed(() => anomalyExpanded.value ? bpAnomalyList.value : bpAnomalyList.value.slice(0, 20))
   const bpZones = computed(() => {
     const summary = periodRisk.riskSummary.value

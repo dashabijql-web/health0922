@@ -50,6 +50,10 @@ export function useSleepPage() {
   }, 1000)
 
   const ctx: any = model
+  // runtime 里的方法互相通过 this.xxx 调用（如 mounted 里的 this.fetchData()），必须先绑到 ctx 上
+  Object.entries(sleepPageRuntime.methods as Record<string, (...args: any[]) => any>).forEach(([name, fn]) => {
+    ctx[name] = fn.bind(ctx)
+  })
   ctx.$refs = refs
   ctx.$nextTick = nextTick
   ctx.$message = ElMessage

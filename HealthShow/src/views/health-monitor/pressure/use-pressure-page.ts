@@ -18,7 +18,6 @@ export function usePressurePage() {
   const top5Data = ref<MetricRow[]>([])
   const distLegend = ref<MetricRow[]>([])
   const realtimeList = ref<MetricRow[]>([])
-  const filterDept = ref('')
   const anomalyExpanded = ref(false)
   const charts: Record<string, any> = {}
   const top5ScrollRef = ref<HTMLElement | null>(null)
@@ -100,10 +99,7 @@ export function usePressurePage() {
     : 1)
   const displayedTop5 = computed(() => top5Data.value.slice(0, 10))
   const top5Title = computed(() => ({ day: '今日', week: '近7日', month: '近30日' })[activePeriod.value] + '异常频次 Top 10')
-  const filteredRealtimeList = computed(() => filterDept.value
-    ? realtimeList.value.filter((item) => item.deptName === filterDept.value)
-    : realtimeList.value)
-  const psAnomalyList = computed(() => filteredRealtimeList.value.filter((item) => item.pressure >= 70))
+  const psAnomalyList = computed(() => realtimeList.value.filter((item) => item.pressure >= 70))
   const displayedAnomalyList = computed(() => anomalyExpanded.value
     ? psAnomalyList.value
     : psAnomalyList.value.slice(0, 20))

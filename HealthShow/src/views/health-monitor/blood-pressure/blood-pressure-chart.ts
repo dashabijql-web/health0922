@@ -1,48 +1,5 @@
-import { emptyOption, chartTooltip, categoryAxis, valueAxis, deptGrid, hourlyGrid, barLabel } from '@/utils/echarts-config'
-import { initChart, gradH, gradV, type ChartStore } from '@/utils/chart-helpers'
-
-export function renderBloodPressureDept(charts: ChartStore, el: HTMLElement | null | undefined, data: Array<Record<string, any>>, onSelectDept: (name: string) => void) {
-  const c = initChart(charts, 'dept', el)
-  if (!c) return
-  if (!data.length) {
-    c.setOption(emptyOption())
-    return
-  }
-  const d = data.slice(0, 12)
-  c.setOption({
-    backgroundColor: 'transparent',
-    legend: { data: ['收缩压', '舒张压'], right: 10, top: 6, textStyle: { color: '#8ba6c8', fontSize: 11 }, itemWidth: 10, itemHeight: 10, icon: 'rect' },
-    grid: { ...deptGrid(), top: '14%' },
-    xAxis: valueAxis(),
-    yAxis: { ...categoryAxis(d.map(x => x.deptName), { show: false }), inverse: true },
-    series: [
-      {
-        name: '收缩压',
-        type: 'bar',
-        stack: 'none',
-        barWidth: '35%',
-        data: d.map(x => x.avgSystolic || 0),
-        itemStyle: { color: gradH('#a78bfa', '#7c3aed') },
-        label: barLabel()
-      },
-      {
-        name: '舒张压',
-        type: 'bar',
-        stack: 'none',
-        barWidth: '35%',
-        data: d.map(x => x.avgDiastolic || 0),
-        itemStyle: { color: gradH('#38bdf8', '#0284c7'), borderRadius: [0, 4, 4, 0] },
-        label: barLabel()
-      }
-    ]
-  })
-  c.off('click')
-  c.on('click', params => {
-    const name = d[params.dataIndex]?.deptName
-    if (!name) return
-    onSelectDept(name)
-  })
-}
+import { chartTooltip, categoryAxis, valueAxis, hourlyGrid } from '@/utils/echarts-config'
+import { initChart, gradV, type ChartStore } from '@/utils/chart-helpers'
 
 export function renderBloodPressureHourly(charts: ChartStore, el: HTMLElement | null | undefined, sysVals: Array<number | null>, diaVals: Array<number | null>) {
   const c = initChart(charts, 'hourly', el)
