@@ -23,8 +23,8 @@
  *   HEALTH_SMOKE_SHOTS     截图目录，默认 系统临时目录/health-smoke
  *   HEALTH_SMOKE_SETTLE_MS 每页打开后等待毫秒数，默认 3500
  *
- * 依赖：playwright-core。优先使用 HealthShow/node_modules 里的；项目的 package.json 没有声明它，
- * 找不到时请自行安装（例如 `cd HealthShow && pnpm add -D playwright-core`），不要让脚本擅自改依赖。
+ * 依赖：playwright-core，已在 HealthShow/package.json 的 devDependencies 中声明（先在 HealthShow 里 pnpm install）。
+ * 脚本使用本机安装的 Chrome（channel: 'chrome'），找不到时回退到 Playwright 自带的 Chromium。
  *
  * 注意：前端用的是 hash 路由，真实地址是 http://localhost:9528/#/health-monitor/heart-rate。
  *       用普通路径打开会回退到首页，导致“每页都长一样”的假结果。
@@ -80,7 +80,7 @@ function loadPlaywright() {
   for (const c of candidates) {
     try { return require(c) } catch { /* 试下一个 */ }
   }
-  console.error('找不到 playwright-core。请先安装，例如：cd HealthShow && pnpm add -D playwright-core')
+  console.error('找不到 playwright-core。请先在 HealthShow 目录运行 pnpm install')
   process.exit(2)
 }
 

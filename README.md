@@ -81,7 +81,7 @@ curl -I http://127.0.0.1:9528/
 node tools/frontend-smoke.cjs --interact
 ```
 
-它会逐页打开所有业务页面，检查控制台报错、接口错误和图表数量，并点击部门图确认能打开抽屉。需要 `playwright-core`（项目没有声明这个依赖，需要自行安装）。详细说明写在脚本文件开头。
+它会逐页打开所有业务页面，检查控制台报错、接口错误和图表数量，并点击部门图确认能打开抽屉。依赖已在 `HealthShow/package.json` 中声明（`playwright-core`），先在 `HealthShow` 里 `pnpm install`。详细说明写在脚本文件开头。
 
 ## 数据库边界
 
