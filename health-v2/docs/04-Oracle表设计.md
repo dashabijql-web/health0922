@@ -109,7 +109,7 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 | `FILE_NAME` | VARCHAR2(200 CHAR) | |
 | `FILE_TYPE` `MINE_CODE` | | 如 `RYSS`；煤矿编码 |
 | `HEADER_TIME` | TIMESTAMP(0) | 文件头里的"数据上传时间"（判断新旧的依据） |
-| `SHA256` | CHAR(64) | 内容摘要，用来去重 |
+| `SHA256` | CHAR(64) | 内容摘要，用来去重；没读取内容时（符号链接、文件名不合法）为空 |
 | `SIZE_BYTES` | NUMBER | |
 | `STATUS` | VARCHAR2(12 CHAR) | `DONE` `PARTIAL`（部分记录失败）`FAILED` `STALE`（过期未生效）`DUPLICATE` `UNKNOWN`（未识别类型） |
 | `RECORD_COUNT` `ERROR_COUNT` | NUMBER | 成功、失败记录数 |
@@ -117,11 +117,11 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 | `RECEIVED_AT` `PROCESSED_AT` | TIMESTAMP(0) | |
 | `BACKUP_PATH` | VARCHAR2(500 CHAR) | |
 
-索引（`FILE_NAME`, `SHA256`）用来查重复，不设唯一：重复的文件也要记一行 `DUPLICATE`；索引（`FILE_TYPE`, `HEADER_TIME`）。
+索引（`FILE_NAME`, `SHA256`）用来查重复，不设唯一：重复的文件也要记一行 `DUPLICATE`；索引（`FILE_TYPE`, `STATUS`, `HEADER_TIME`）：`V_POS_IN_WELL` 每次都要找"最新一份生效的 `RYSS`"，带上状态列后只读索引就能取到，不用回表。
 
 ### `POS_INGEST_ERROR`
 
-`ID`、`FILE_ID`（外键）、`LINE_NO`（第几条记录）、`RAW_TEXT`（原文，超长截断，含姓名，仅供运维排查，页面不展示）、`REASON`。
+`ID`、`FILE_ID`（外键）、`KIND`（`ERROR` 记录被跳过 / `WARN` 记录已入库但要人工核对，如同一文件里卡编码重复）、`LINE_NO`（第几条记录，文件头之后从 1 数起）、`RAW_TEXT`（原文，超长截断到 1000 字，含姓名，仅供运维排查，页面不展示）、`REASON`。`POS_INGEST_FILE.ERROR_COUNT` 只数 `ERROR`。一个文件最多记 500 条。
 
 ### `POS_AREA`
 
@@ -152,7 +152,7 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 | `STATION_CODE` | VARCHAR2(22 CHAR) 主键 | 不设外键（允许先摆放后收到文件） |
 | `DISPLAY_NAME` | VARCHAR2(200 CHAR) | 用户起的名字，可为空 |
 | `X` `Y` | NUMBER(15,3) | 地图坐标（EPSG:4527，见 `06`） |
-| `PLACED_BY` `PLACED_AT` `UPDATED_BY` `UPDATED_AT` | | 首次摆放、最后修改的人和时间 |
+| `PLACED_BY` `PLACED_AT` `UPDATED_BY` `UPDATED_AT` | | 首次摆放、最后修改的人（登录名）和时间 |
 | `VERSION` | NUMBER 默认 0 | 乐观锁：两人同时改，后提交的收到冲突提示 |
 
 基站显示名称优先级：`DISPLAY_NAME` > `STATION_NAME` > "区域名称 + 编码后 6 位"。
@@ -205,9 +205,9 @@ SELECT s.*
 
 ### `POS_PRESENCE_DAILY`
 
-主键（`STAT_DATE`, `CARD_CODE`）；`FIRST_IN_TIME`（最早入井时刻）、`LAST_OUT_TIME`（最晚出井时刻）、`LAST_SEEN_TIME`（当天最后一次在快照里出现）。用途：佩戴情况导出要知道"前一天下过井的人"。
+主键（`STAT_DATE`, `CARD_CODE`）；`FIRST_IN_TIME`（最早入井时刻）、`LAST_OUT_TIME`（最晚出井时刻）、`LAST_SEEN_TIME`（当天最后一次以"已入井"出现在快照里的快照时间）。用途：佩戴情况导出要知道"前一天下过井的人"。
 
-**日期按快照算**：`STAT_DATE` 是 `RYSS` 文件头时间的日期。某人在 D 日的任何一份快照里出入井标志为 `1`，就在 D 日有一行。跨零点的夜班因此在两天各有一行，`FIRST_IN_TIME` 可能是前一天的时刻。
+怎么写入见 `02` 第四节"每日出入井"。**日期按快照算**：`STAT_DATE` 是 `RYSS` 文件头时间的日期。某人在 D 日的任何一份快照里出入井标志为 `1`，就在 D 日有一行。跨零点的夜班因此在两天各有一行，`FIRST_IN_TIME` 可能是前一天的时刻。
 
 ### `POS_HEADCOUNT_SERIES`
 

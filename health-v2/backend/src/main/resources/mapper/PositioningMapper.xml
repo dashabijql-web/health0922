@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.positioning.PositioningMapper">
+
+    <!-- ================= 处理记录 ================= -->
+
+    <select id="countProcessed" resultType="int">
+        SELECT COUNT(*) FROM POS_INGEST_FILE
+         WHERE FILE_NAME = #{fileName} AND SHA256 = #{sha256}
+           AND STATUS IN ('DONE', 'PARTIAL', 'STALE')
+    </select>
+
+    <select id="latestEffectiveHeaderTime" resultType="java.time.LocalDateTime">
+        SELECT MAX(HEADER_TIME) FROM POS_INGEST_FILE
+         WHERE FILE_TYPE = #{fileType} AND STATUS IN ('DONE', 'PARTIAL')
+    </select>
+
+    <insert id="insertFile" useGeneratedKeys="true" keyProperty="id" keyColumn="ID">
+        INSERT INTO POS_INGEST_FILE (FILE_NAME, FILE_TYPE, MINE_CODE, HEADER_TIME, SHA256, SIZE_BYTES, STATUS,
+                                     RECORD_COUNT, ERROR_COUNT, ERROR_MSG, RECEIVED_AT, BACKUP_PATH)
+        VALUES (#{fileName}, #{fileType}, #{mineCode}, #{headerTime}, #{sha256}, #{sizeBytes}, #{status},
+                #{recordCount}, #{errorCount}, #{errorMsg}, #{receivedAt}, #{backupPath})
+    </insert>
+
+    <insert id="insertIssue">
+        INSERT INTO POS_INGEST_ERROR (FILE_ID, KIND, LINE_NO, RAW_TEXT, REASON)
+        VALUES (#{fileId}, #{issue.kind}, #{issue.lineNo}, #{issue.rawText}, #{issue.reason})
+    </insert>
+
+    <!-- ================= 各类文件 ================= -->
+
+    <update id="mergeArea">
+        MERGE INTO POS_AREA t
+        USING DUAL ON (t.AREA_CODE = #{row.areaCode})
+        WHEN MATCHED THEN UPDATE SET
+             t.AREA_TYPE = #{row.areaType}, t.AREA_NAME = #{row.areaName}, t.QUOTA = #{row.quota},
+             t.SRC_DATA_TIME = #{src}
+         WHERE t.SRC_DATA_TIME &lt;= #{src}
+        WHEN NOT MATCHED THEN INSERT (AREA_CODE, AREA_TYPE, AREA_NAME, QUOTA, SRC_DATA_TIME)
+             VALUES (#{row.areaCode}, #{row.areaType}, #{row.areaName}, #{row.quota}, #{src})
+    </update>
+
+    <!-- 名称和状态来自不同文件，各自按自己的文件时间判断新旧 -->
+    <update id="mergeStationName">
+        MERGE INTO POS_STATION t
+        USING DUAL ON (t.STATION_CODE = #{row.stationCode})
+        WHEN MATCHED THEN UPDATE SET t.STATION_NAME = #{row.stationName}, t.NAME_SRC_TIME = #{src}
+         WHERE t.NAME_SRC_TIME IS NULL OR t.NAME_SRC_TIME &lt;= #{src}
+        WHEN NOT MATCHED THEN INSERT (STATION_CODE, STATION_NAME, NAME_SRC_TIME)
+             VALUES (#{row.stationCode}, #{row.stationName}, #{src})
+    </update>
+
+    <update id="mergeStationStatus">
+        MERGE INTO POS_STATION t
+        USING DUAL ON (t.STATION_CODE = #{row.stationCode})
+        WHEN MATCHED THEN UPDATE SET
+             t.RUN_STATUS = #{row.runStatus}, t.POWER_STATUS = #{row.powerStatus},
+             t.STATUS_TIME = #{row.statusTime}, t.STATUS_SRC_TIME = #{src}
+         WHERE t.STATUS_SRC_TIME IS NULL OR t.STATUS_SRC_TIME &lt;= #{src}
+        WHEN NOT MATCHED THEN INSERT (STATION_CODE, RUN_STATUS, POWER_STATUS, STATUS_TIME, STATUS_SRC_TIME)
+             VALUES (#{row.stationCode}, #{row.runStatus}, #{row.powerStatus}, #{row.statusTime}, #{src})
+    </update>
+
+    <!--
+      不碰人工录入的年龄。从 RYSS 补录的人（FROM_RYXX = 0）只有姓名，
+      RYXX 不论新旧都可以补全它；否则按文件时间判断新旧。
+    -->
+    <update id="mergePerson">
+        MERGE INTO POS_PERSON t
+        USING DUAL ON (t.CARD_CODE = #{row.cardCode})
+        WHEN MATCHED THEN UPDATE SET
+             t.PERSON_NAME = #{row.personName}, t.JOB_KIND = #{row.jobKind}, t.JOB_TITLE = #{row.jobTitle},
+             t.DEPT = #{row.dept}, t.IS_LEADER = #{row.isLeader}, t.IS_SPECIAL = #{row.isSpecial},
+             t.FROM_RYXX = 1, t.SRC_DATA_TIME = #{src}, t.UPDATED_AT = LOCALTIMESTAMP(0)
+         WHERE t.FROM_RYXX = 0 OR t.SRC_DATA_TIME &lt;= #{src}
+        WHEN NOT MATCHED THEN INSERT (CARD_CODE, PERSON_NAME, JOB_KIND, JOB_TITLE, DEPT, IS_LEADER, IS_SPECIAL,
+                                      FROM_RYXX, SRC_DATA_TIME)
+             VALUES (#{row.cardCode}, #{row.personName}, #{row.jobKind}, #{row.jobTitle}, #{row.dept},
+                     #{row.isLeader}, #{row.isSpecial}, 1, #{src})
+    </update>
+
+    <update id="insertPersonIfMissing">
+        MERGE INTO POS_PERSON t
+        USING DUAL ON (t.CARD_CODE = #{cardCode})
+        WHEN NOT MATCHED THEN INSERT (CARD_CODE, PERSON_NAME, FROM_RYXX, SRC_DATA_TIME)
+             VALUES (#{cardCode}, #{personName}, 0, #{src})
+    </update>
+
+    <update id="mergePersonState">
+        MERGE INTO POS_PERSON_STATE t
+        USING DUAL ON (t.CARD_CODE = #{row.cardCode})
+        WHEN MATCHED THEN UPDATE SET
+             t.IN_OUT_FLAG = #{row.inOutFlag}, t.IN_TIME = #{row.inTime}, t.OUT_TIME = #{row.outTime},
+             t.AREA_CODE = #{row.areaCode}, t.AREA_ENTER_TIME = #{row.areaEnterTime},
+             t.STATION_CODE = #{row.stationCode}, t.STATION_ENTER_TIME = #{row.stationEnterTime},
+             t.DISTANCE_M = #{row.distanceM}, t.SHIFT_MODE = #{row.shiftMode},
+             t.WORK_STATUS = #{row.workStatus}, t.SRC_DATA_TIME = #{src}
+         WHERE t.SRC_DATA_TIME &lt;= #{src}
+        WHEN NOT MATCHED THEN INSERT (CARD_CODE, IN_OUT_FLAG, IN_TIME, OUT_TIME, AREA_CODE, AREA_ENTER_TIME,
+                                      STATION_CODE, STATION_ENTER_TIME, DISTANCE_M, SHIFT_MODE, WORK_STATUS,
+                                      SRC_DATA_TIME)
+             VALUES (#{row.cardCode}, #{row.inOutFlag}, #{row.inTime}, #{row.outTime}, #{row.areaCode},
+                     #{row.areaEnterTime}, #{row.stationCode}, #{row.stationEnterTime}, #{row.distanceM},
+                     #{row.shiftMode}, #{row.workStatus}, #{src})
+    </update>
+
+    <!-- LEAST / GREATEST 遇到 NULL 会返回 NULL，所以用 COALESCE 兜底 -->
+    <update id="mergePresenceIn">
+        MERGE INTO POS_PRESENCE_DAILY t
+        USING DUAL ON (t.STAT_DATE = #{statDate} AND t.CARD_CODE = #{cardCode})
+        WHEN MATCHED THEN UPDATE SET
+             t.FIRST_IN_TIME  = COALESCE(LEAST(t.FIRST_IN_TIME, #{inTime}), t.FIRST_IN_TIME, #{inTime}),
+             t.LAST_SEEN_TIME = GREATEST(t.LAST_SEEN_TIME, #{seenTime})
+        WHEN NOT MATCHED THEN INSERT (STAT_DATE, CARD_CODE, FIRST_IN_TIME, LAST_SEEN_TIME)
+             VALUES (#{statDate}, #{cardCode}, #{inTime}, #{seenTime})
+    </update>
+
+    <update id="updatePresenceOut">
+        UPDATE POS_PRESENCE_DAILY
+           SET LAST_OUT_TIME = COALESCE(GREATEST(LAST_OUT_TIME, #{outTime}), #{outTime})
+         WHERE CARD_CODE = #{cardCode}
+           AND STAT_DATE BETWEEN #{fromDate} AND #{toDate}
+    </update>
+
+    <!-- 厂家重发同一时刻的文件时覆盖 -->
+    <update id="mergeHeadcount">
+        MERGE INTO POS_HEADCOUNT_SERIES t
+        USING DUAL ON (t.SNAPSHOT_TIME = #{snapshotTime})
+        WHEN MATCHED THEN UPDATE SET t.IN_WELL_COUNT = #{inWell}, t.OUT_COUNT = #{out}, t.TOTAL_COUNT = #{total}
+        WHEN NOT MATCHED THEN INSERT (SNAPSHOT_TIME, IN_WELL_COUNT, OUT_COUNT, TOTAL_COUNT)
+             VALUES (#{snapshotTime}, #{inWell}, #{out}, #{total})
+    </update>
+
+    <!-- ================= 状态接口 ================= -->
+
+    <select id="latestFilePerType" resultType="com.xzkj.hv2.positioning.PositioningStatus$LastFile">
+        SELECT FILE_TYPE, FILE_NAME, STATUS, HEADER_TIME, PROCESSED_AT, RECORD_COUNT, ERROR_COUNT, ERROR_MSG
+          FROM (SELECT f.*, ROW_NUMBER() OVER (PARTITION BY FILE_TYPE ORDER BY ID DESC) RN
+                  FROM POS_INGEST_FILE f
+                 WHERE FILE_TYPE IS NOT NULL)
+         WHERE RN = 1
+         ORDER BY FILE_TYPE
+    </select>
+
+    <select id="latestEffectivePerType" resultType="com.xzkj.hv2.positioning.PositioningStatus$TypeTime">
+        SELECT FILE_TYPE, MAX(HEADER_TIME) AS HEADER_TIME
+          FROM POS_INGEST_FILE
+         WHERE STATUS IN ('DONE', 'PARTIAL') AND FILE_TYPE IS NOT NULL
+         GROUP BY FILE_TYPE
+    </select>
+
+    <select id="countFailedSince" resultType="int">
+        SELECT COUNT(*) FROM POS_INGEST_FILE WHERE STATUS = 'FAILED' AND PROCESSED_AT &gt;= #{since}
+    </select>
+
+    <select id="countInWell" resultType="int">
+        SELECT COUNT(*) FROM V_POS_IN_WELL
+    </select>
+</mapper>

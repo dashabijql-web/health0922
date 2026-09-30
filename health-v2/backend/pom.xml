@@ -78,6 +78,19 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 集成测试：用 Flyway 在专用测试用户里重建表（只在测试里用，后端运行时不带 Flyway） -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway-plugin.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-oracle</artifactId>
+            <version>${flyway-plugin.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

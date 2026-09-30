@@ -70,6 +70,22 @@ hv2:
     max-failures: 5
     lock-duration: 10m
     fail-key-prefix: "hv2:auth:fail:"
+  positioning:
+    # 目录留空时用 health-v2/runtime/ 下的 inbox、backup、error（docs/02 第二节）
+    inbox-dir: ${POSITIONING_INBOX_DIR:}
+    backup-dir: ${POSITIONING_BACKUP_DIR:}
+    error-dir: ${POSITIONING_ERROR_DIR:}
+    # 本矿煤矿编码，只接收这个矿的文件
+    mine-code: ${POSITIONING_MINE_CODE:620823009203}
+    scan-enabled: ${POSITIONING_SCAN_ENABLED:true}
+    scan-seconds: ${POSITIONING_SCAN_SECONDS:30}
+    # 最新一份 RYSS 距现在超过它，算"定位数据已过期"
+    stale-minutes: ${POSITIONING_STALE_MINUTES:15}
+    # 文件头时间允许比服务器现在晚多少分钟，再晚就拒收
+    future-tolerance-minutes: ${POSITIONING_FUTURE_TOLERANCE_MINUTES:5}
+    incomplete-timeout: 10m
+    max-file-bytes: 20971520
+    max-error-ratio: 0.2
 
 logging:
   level:
