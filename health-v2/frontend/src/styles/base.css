@@ -1,0 +1,42 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: var(--bg-letterbox);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  /* 大屏按比例缩放，不出现滚动条 */
+  overflow: hidden;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+.num {
+  font-family: var(--font-number);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 系统开启"减少动态效果"时关闭装饰动画（docs/07 第一部分"六、动画"） */
+@media (prefers-reduced-motion: reduce) {
+  .decor,
+  .decor * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.common.oplog.OperationLogMapper">
+
+    <insert id="insert">
+        INSERT INTO SYS_OPERATION_LOG (USER_ID, USERNAME, ACTION, TARGET_TYPE, TARGET_ID, BEFORE_JSON, AFTER_JSON)
+        VALUES (#{userId}, #{username}, #{action}, #{targetType}, #{targetId},
+                #{beforeJson, jdbcType=CLOB}, #{afterJson, jdbcType=CLOB})
+    </insert>
+</mapper>

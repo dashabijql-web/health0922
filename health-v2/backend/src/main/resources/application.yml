@@ -1,0 +1,76 @@
+# 配置项和默认值见 docs/01 第五节。敏感信息只从环境变量读取（本机见 health-v2/.env.local）。
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: hv2-backend
+  config:
+    # 本机开发时（如在 IDEA 里直接运行）没有设环境变量，就从 health-v2/.env.local 读连接信息；
+    # 文件不存在就跳过。环境变量优先级更高，上线时照常用环境变量。
+    # 工作目录是 backend/ 时找 ../.env.local，是 health-v2/ 时找 ./.env.local。
+    import:
+      - optional:file:../.env.local[.properties]
+      - optional:file:./.env.local[.properties]
+  datasource:
+    url: jdbc:oracle:thin:@//${ORACLE_HOST:127.0.0.1}:${ORACLE_PORT:1521}/${ORACLE_SERVICE:FREEPDB1}
+    username: ${ORACLE_USER}
+    password: ${ORACLE_PASSWORD}
+    hikari:
+      pool-name: hv2-oracle
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+      connection-init-sql: ALTER SESSION SET TIME_ZONE = 'Asia/Shanghai'
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # 按列名（驼峰）对应 record 的构造参数，不依赖列顺序
+    arg-name-based-constructor-auto-mapping: true
+    jdbc-type-for-null: 'NULL'
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+
+sa-token:
+  token-name: satoken
+  # 令牌有效期 7 天；大屏常开，不设无操作超时
+  timeout: 604800
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  # 令牌只从请求头 satoken 读取，不读写 Cookie
+  is-read-cookie: false
+  is-read-body: false
+  is-write-header: false
+  token-style: random-64
+  is-print: false
+  is-log: false
+
+hv2:
+  login:
+    # 登录页是否显示默认账号提示；上线前改为 false（docs/08 阶段 7）
+    show-default-account: ${LOGIN_SHOW_DEFAULT_ACCOUNT:true}
+    default-account-hint: 默认账号 admin，密码 admin
+  auth:
+    # 同一用户名连续输错 5 次锁定 10 分钟（docs/05 第八节）
+    max-failures: 5
+    lock-duration: 10m
+    fail-key-prefix: "hv2:auth:fail:"
+
+logging:
+  level:
+    com.xzkj.hv2: info

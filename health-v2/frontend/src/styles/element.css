@@ -1,0 +1,17 @@
+/* Element Plus 深色主题的颜色对齐到 tokens.css */
+html.dark {
+  --el-color-primary: var(--accent);
+  --el-color-primary-light-3: var(--accent-soft);
+  --el-color-primary-dark-2: var(--accent-soft);
+  --el-color-warning: var(--warn);
+  --el-color-danger: var(--danger);
+  --el-color-info: var(--info);
+  --el-bg-color: var(--bg-panel-strong);
+  --el-bg-color-overlay: var(--bg-panel-strong);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-border-color: var(--border-glow);
+  --el-border-color-light: var(--border-glow);
+  --el-font-family: var(--font-body);
+}
