@@ -18,6 +18,12 @@ const routes: RouteRecordRaw[] = [
         name: 'portal',
         component: () => import('@/views/portal/PortalView.vue'),
         meta: { title: '入口' }
+      },
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('@/views/dashboard/DashboardView.vue'),
+        meta: { title: '动态数据', nav: true }
       }
     ]
   }

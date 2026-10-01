@@ -27,11 +27,13 @@
 - 数据库 Oracle：本机 Docker 容器 `local-oracle-free`，`127.0.0.1:1521`，服务名 `FREEPDB1`，用户 `HEALTH_V2`，连接信息在 `health-v2/.env.local`。密码不写进代码、文档、日志或提交。数据库重新设计，不照搬 SQL Server 脚本；建表脚本显式执行，不在业务请求里自动建表。表设计见 `docs/04`。
 - 后端测试连接专用测试用户 `HEALTH_V2_TEST`（会被测试清空重建，不放业务数据），不连 `HEALTH_V2`；配置见 `docs/01` 配置表。
 - 开发期默认管理员 `admin` / `admin` 是公开的，可以写进迁移脚本（存 BCrypt 哈希）并在登录页提示；上线前修改（`docs/08` 阶段 7）。其他密码仍按上一条处理。
-- Redis 与老项目共用本机实例，**本项目所有 key 以 `hv2:` 开头**。
+- Redis 用本项目自己的 Docker 容器 `hv2-redis`（`127.0.0.1:6380`，只对本机开放，数据卷 `hv2-redis-data`），不和老项目共用。key 仍一律以 `hv2:` 开头（后端测试用 `hv2:test:`），不执行 `FLUSHALL`、`FLUSHDB`。
+- Oracle 和 Redis 两个容器由 `tools/dev/docker-compose.yml` 管理，在 Docker Desktop 里是一组"hv2"。在 `health-v2/` 下启动 `docker compose --env-file .env.local -f tools/dev/docker-compose.yml start`，停止把 `start` 换成 `stop`（也可以在 Docker Desktop 里点这一组）。数据在外部数据卷 `oracle_data`、`hv2-redis-data` 里，重建容器不丢。Oracle 的 SYS 密码在 `.env.local` 的 `ORACLE_SYS_PASSWORD`。重建容器前先确认没有后端连着它们。
 
 | 服务 | 端口 |
 | --- | --- |
 | 手表 TCP | `9001` |
+| Redis | `6380`（容器 `hv2-redis`） |
 | 后端 HTTP | `8081`（暂定） |
 | 前端 | `9529`（暂定） |
 

@@ -50,10 +50,14 @@ const TOKENS = [
 
 <style scoped>
 .preview {
+  position: absolute;
+  left: 50px;
+  right: 50px;
+  top: 160px;
+  bottom: 50px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  height: 100%;
 }
 
 .preview__banners {

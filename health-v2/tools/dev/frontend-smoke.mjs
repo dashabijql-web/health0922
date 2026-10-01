@@ -39,8 +39,12 @@ const VIEWPORTS = [
 ]
 
 // 需要登录的页面：hash 路由，必须写成 /#/...，否则会回到首页得到"每页都一样"的假结果
+// charts：页面上应有的 ECharts 图表数；interact：打开后要点一点的交互（失败记一项）
 const PAGES = [
-  { name: 'portal', hash: '#/portal', selector: '.header__title', text: '职工健康管理系统' },
+  { name: 'portal', hash: '#/portal', selector: '.ring-counter', text: '重点监护人员', charts: 0, interact: portalInteract },
+  { name: 'dashboard', hash: '#/dashboard', selector: '.stage__total-label', text: '累计采集数据', charts: 1,
+    interact: dashboardInteract },
+  { name: 'dashboard-map', hash: '#/dashboard?mode=map', selector: '.map-stage', text: '地图模式', charts: 1 },
   { name: 'dev-components', hash: '#/dev/components', selector: '.preview', dev: true }
 ]
 
@@ -111,6 +115,54 @@ async function checkLayout(page, label, viewport) {
   }
 }
 
+/** 入口页：四个体征面板、四个圆环都在；"数据展示"进入动态数据页 */
+async function portalInteract(page, label) {
+  const panels = await page.locator('.metric').count()
+  const rings = await page.locator('.ring-counter').count()
+  if (panels === 4 && rings === 4) pass(`${label}：4 个体征面板、4 个圆环`)
+  else fail(`${label}：体征面板 ${panels} 个、圆环 ${rings} 个`)
+  await page.getByRole('button', { name: '数据展示' }).click()
+  await page.waitForURL(/#\/dashboard/, { timeout: 5000 }).catch(() => null)
+  if (new URL(page.url()).hash.startsWith('#/dashboard')) pass(`${label}：点"数据展示"进入动态数据`)
+  else fail(`${label}：点"数据展示"没有进入动态数据，当前 ${page.url()}`)
+}
+
+/** 动态数据页：告警格子、设备事件、佩戴情况确认框、切换模式 */
+async function dashboardInteract(page, label) {
+  const tiles = await page.locator('.stat-tile').count()
+  if (tiles === 6) pass(`${label}：6 个告警格子`)
+  else fail(`${label}：告警格子 ${tiles} 个`)
+
+  await page.locator('.stat-tile').first().click()
+  const alertModal = page.locator('.screen-modal__box', { hasText: '今天的SOS告警' })
+  if (await alertModal.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：点 SOS 格子弹出名单`)
+  else fail(`${label}：点 SOS 格子没有弹出名单`)
+  await page.keyboard.press('Escape')
+
+  await page.locator('.device-badge').click()
+  const devModal = page.locator('.screen-modal__box', { hasText: '今天的设备事件' })
+  if (await devModal.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：点"设备事件"弹出列表`)
+  else fail(`${label}：点"设备事件"没有弹出列表`)
+  await page.locator('.screen-modal__close').click()
+
+  await page.getByRole('button', { name: '佩戴情况', exact: true }).click()
+  const confirm = page.locator('.screen-modal__box', { hasText: '此操作将导出下井职工前一天手表佩戴情况' })
+  if (await confirm.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：佩戴情况确认框`)
+  else fail(`${label}：没有弹出佩戴情况确认框`)
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 15000 }).catch(() => null),
+    confirm.getByRole('button', { name: '确定' }).click()
+  ])
+  const fileName = download?.suggestedFilename() ?? ''
+  if (/^佩戴情况_\d{14}\.xlsx$/.test(fileName)) pass(`${label}：下载 ${fileName}`)
+  else fail(`${label}：没有下载到佩戴情况 Excel（${fileName || '无'}）`)
+
+  await page.getByRole('button', { name: '展示模式', exact: true }).click()
+  await page.waitForSelector('.map-stage', { timeout: 3000 }).catch(() => null)
+  if (new URL(page.url()).hash.includes('mode=map')) pass(`${label}：切换到地图模式`)
+  else fail(`${label}：没有切换到地图模式`)
+}
+
 async function main() {
   mkdirSync(SHOT_DIR, { recursive: true })
   const browser = await launch()
@@ -150,7 +202,7 @@ async function main() {
 
     // 3. 在登录页输入账号密码登录，进入首页
     console.log('界面登录')
-    const ctx = await browser.newContext({ viewport: VIEWPORTS[0] })
+    const ctx = await browser.newContext({ viewport: VIEWPORTS[0], acceptDownloads: true })
     {
       const page = await ctx.newPage()
       const report = watch(page, '界面登录')
@@ -183,7 +235,15 @@ async function main() {
         if (!el) fail(`${label}：找不到 ${p.selector}`)
         else if (p.text && !(await el.textContent())?.includes(p.text)) fail(`${label}：${p.selector} 里没有"${p.text}"`)
         await checkLayout(page, label, vp)
+        if (p.charts !== undefined) {
+          // 图表初始化在数据回来之后，稍等一下再数
+          await page.waitForTimeout(1500)
+          const charts = await page.locator('[_echarts_instance_]').count()
+          if (charts === p.charts) pass(`${label}：图表 ${charts} 个`)
+          else fail(`${label}：图表应有 ${p.charts} 个，实际 ${charts} 个`)
+        }
         await page.screenshot({ path: path.join(SHOT_DIR, `${p.name}-${vp.width}x${vp.height}.png`) })
+        if (p.interact && vp === VIEWPORTS[0]) await p.interact(page, label)
         report()
         await page.close()
       }

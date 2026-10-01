@@ -88,3 +88,56 @@ export function get<T>(url: string, options: RequestOptions = {}): Promise<T> {
 export function post<T>(url: string, data?: unknown, options: RequestOptions = {}): Promise<T> {
   return send<T>({ ...options, method: 'POST', url, data })
 }
+
+export interface DownloadedFile {
+  blob: Blob
+  /** 后端 Content-Disposition 里的文件名（RFC 6266 的 filename* 优先） */
+  fileName: string | null
+}
+
+function fileNameOf(disposition: string | undefined): string | null {
+  if (!disposition) return null
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim())
+    } catch {
+      /* 落到下面的 filename= */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)
+  return plain ? plain[1] : null
+}
+
+/**
+ * 下载文件（如 Excel）。成功时后端直接返回文件；失败时返回的仍是 { code, message }，
+ * 但因为按二进制读取，要先把它转回 JSON 才能拿到提示语。
+ */
+export async function download(url: string, options: RequestOptions = {}): Promise<DownloadedFile> {
+  const { silent, ...axiosConfig } = options
+  try {
+    const response = await http.request<Blob>({ ...axiosConfig, method: 'GET', url, responseType: 'blob' })
+    const disposition = response.headers['content-disposition'] as string | undefined
+    return { blob: response.data, fileName: fileNameOf(disposition) }
+  } catch (raw) {
+    let error = toApiError(raw)
+    if (raw instanceof AxiosError && raw.response?.data instanceof Blob) {
+      try {
+        const body = JSON.parse(await raw.response.data.text()) as Partial<ApiEnvelope<unknown>>
+        if (typeof body.message === 'string') {
+          error = new ApiError(body.message, raw.response.status, typeof body.code === 'number' ? body.code : null)
+        }
+      } catch {
+        /* 不是 JSON，用通用提示 */
+      }
+    }
+    if (error.status === 401) {
+      clearToken()
+      unauthorizedHandler?.()
+    }
+    if (!silent) {
+      ElMessage.error(error.message)
+    }
+    throw error
+  }
+}

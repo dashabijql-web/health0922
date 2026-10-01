@@ -25,4 +25,5 @@ if pid_alive "$(read_pid backend)"; then
   echo "后端健康：$(curl -s --max-time 3 "http://127.0.0.1:$BACKEND_PORT/actuator/health" || echo 无响应)"
 fi
 if [[ -n "$(port_pids 1521)" ]]; then line oracle "监听" "1521"; else line oracle "未监听" "1521"; fi
-if redis-cli -p "${REDIS_PORT:-6379}" ping >/dev/null 2>&1; then line redis "正常" "${REDIS_PORT:-6379} PONG"; else line redis "异常" "${REDIS_PORT:-6379}"; fi
+# Redis 是 Docker 容器 hv2-redis（本机没有装 redis-cli），在容器里执行 ping
+if docker exec hv2-redis redis-cli ping >/dev/null 2>&1; then line redis "正常" "${REDIS_PORT:-6380} PONG（容器 hv2-redis）"; else line redis "异常" "${REDIS_PORT:-6380}（容器 hv2-redis 没有运行？docker start hv2-redis）"; fi

@@ -1,0 +1,38 @@
+# 本项目用的 Oracle 和 Redis（docs/01 配置表），在 Docker Desktop 里显示为一组"hv2"。
+# 用法（在 health-v2/ 目录下）：
+#   docker compose --env-file .env.local -f tools/dev/docker-compose.yml up -d     # 第一次建容器，或改了本文件后重建
+#   docker compose --env-file .env.local -f tools/dev/docker-compose.yml start     # 启动（容器已存在时）
+#   docker compose --env-file .env.local -f tools/dev/docker-compose.yml stop      # 停止
+# 也可以在 Docker Desktop 里点这一组的 ▶ / ■。
+# 数据在两个外部数据卷里（oracle_data、hv2-redis-data），删除、重建容器都不会丢。
+# Oracle 的 SYS 密码从 .env.local 的 ORACLE_SYS_PASSWORD 读，不写在这里。
+name: hv2
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:latest
+    container_name: local-oracle-free
+    restart: unless-stopped
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:?在 .env.local 里设置 ORACLE_SYS_PASSWORD}
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+
+  redis:
+    image: redis:7
+    container_name: hv2-redis
+    restart: "no"
+    # 只对本机开放，和老项目的 6379 分开
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - hv2-redis-data:/data
+
+volumes:
+  oracle_data:
+    external: true
+  hv2-redis-data:
+    external: true

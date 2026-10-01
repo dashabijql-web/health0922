@@ -42,10 +42,20 @@ public class PositioningStatusService {
         last.values().forEach(f -> types.add(new PositioningStatus.TypeStatus(f.fileType(), null, f)));
 
         LocalDateTime lastRyss = effective.get(PositioningFileType.RYSS.name());
-        boolean stale = lastRyss == null || lastRyss.plusMinutes(props.staleMinutes()).isBefore(now);
+        boolean stale = isStale(lastRyss, now);
         Integer inWell = lastRyss == null ? null : mapper.countInWell();
 
         return new PositioningStatus(now, props.staleMinutes(), stale, lastRyss, inWell,
                 mapper.countFailedSince(now.minusHours(24)), types);
+    }
+
+    /** 只看最新一份生效的 RYSS：大屏每次刷新都要，比 {@link #status()} 轻。 */
+    public PositioningFreshness freshness() {
+        LocalDateTime lastRyss = mapper.latestEffectiveHeaderTime(PositioningFileType.RYSS.name());
+        return new PositioningFreshness(lastRyss, isStale(lastRyss, LocalDateTime.now(clock)));
+    }
+
+    private boolean isStale(LocalDateTime lastRyss, LocalDateTime now) {
+        return lastRyss == null || lastRyss.plusMinutes(props.staleMinutes()).isBefore(now);
     }
 }

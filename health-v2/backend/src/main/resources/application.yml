@@ -30,7 +30,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
+      # 本项目自己的 Redis 容器 hv2-redis（只对本机开放），不和老项目共用（AGENTS.md"环境"）
+      port: ${REDIS_PORT:6380}
       timeout: 3s
 
 mybatis:

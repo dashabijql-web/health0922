@@ -32,7 +32,7 @@ class RedisLoginFailureCounterTest {
     @BeforeAll
     static void connect() {
         String host = System.getenv().getOrDefault("REDIS_HOST", "127.0.0.1");
-        int port = Integer.parseInt(System.getenv().getOrDefault("REDIS_PORT", "6379"));
+        int port = Integer.parseInt(System.getenv().getOrDefault("REDIS_PORT", "6380"));
         factory = new LettuceConnectionFactory(new RedisStandaloneConfiguration(host, port));
         factory.afterPropertiesSet();
         factory.start();

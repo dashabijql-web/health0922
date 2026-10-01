@@ -340,7 +340,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 | `CODE` | VARCHAR2(20 CHAR) | `HR_HIGH` `HR_LOW` `SPO2_LOW` `TEMP_HIGH` `TEMP_LOW` `BP_SYS_HIGH` `BP_SYS_LOW` `BP_DIA_HIGH` `BP_DIA_LOW` `SOS` `FALL` `LOW_BATTERY` … |
 | `CATEGORY` | VARCHAR2(20 CHAR) | 大屏六类：`SOS` `FALL` `HEART_RATE` `BLOOD_PRESSURE` `SPO2` `TEMPERATURE`；其余 `OTHER` |
 | `SEVERITY` | NUMBER(1) | 1 提示 / 2 一般 / 3 严重（取值见 `03` 第一节、第四节） |
-| `VAL_TEXT` | VARCHAR2(50 CHAR) | 触发时的值，如 `132` 或 `152/98` |
+| `VAL_TEXT` | VARCHAR2(50 CHAR) | 触发时的值，如 `132` 或 `152/98`；设备报警记的是手表的报警代码（如 `01`），页面不显示 |
 | `RULE_GROUP` | VARCHAR2(20 CHAR) | 判断体征越界时用的岗位类别；设备报警为空 |
 | `OCCURRED_AT` `LAST_OCCURRED_AT` | TIMESTAMP(0) | 第一次、最近一次发生（去重期间更新后者；两者一定在同一天，规则见 `03` 第四节） |
 | `OCCUR_COUNT` | NUMBER(6) 默认 1 | 去重期间重复的次数 |

@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  入口页、动态数据页的数字（docs/05 第三、四节）。每个数字的口径写在 docs/05，对照 SQL 在 DashboardServiceTest。
+  "今天"由调用方按注入的 Clock 传进来，不用数据库的 SYSDATE（Oracle 容器是 UTC）。
+  ALERT_EVENT 的一条事件不跨天（OCCURRED_AT 和 LAST_OCCURRED_AT 同一天），
+  所以"LAST_OCCURRED_AT 在今天"等价于"OCCURRED_AT 在今天"，按后者查能用上 (CATEGORY, OCCURRED_AT) 索引。
+-->
+<mapper namespace="com.xzkj.hv2.dashboard.DashboardMapper">
+
+    <!-- ================= 入口页 ================= -->
+
+    <!-- 今天各人日汇总合并：最大取最大、最小取最小，平均按样本数加权 -->
+    <select id="vitalStats" resultType="com.xzkj.hv2.dashboard.DashboardMapper$VitalStatRow">
+        SELECT METRIC, MAX(MAX_V) MAX_V, MIN(MIN_V) MIN_V,
+               ROUND(SUM(AVG_V * SAMPLE_COUNT) / SUM(SAMPLE_COUNT), 1) AVG_V,
+               MAX(UPDATED_AT) UPDATED_AT
+          FROM HEALTH_DAILY_SUMMARY
+         WHERE STAT_DATE = #{statDate} AND METRIC IN ('HEART_RATE', 'SPO2', 'TEMPERATURE')
+         GROUP BY METRIC
+    </select>
+
+    <!-- 今天每个人的步数；没有记录时三项都是 NULL -->
+    <select id="stepStats" resultType="com.xzkj.hv2.dashboard.DashboardMapper$StepStatRow">
+        SELECT MAX(STEPS) MAX_V, MIN(STEPS) MIN_V, ROUND(AVG(STEPS)) AVG_V
+          FROM STEP_DAILY
+         WHERE STAT_DATE = #{statDate}
+    </select>
+
+    <!-- 重点监护一直有效；今日关注只算有效期还没过的 -->
+    <select id="watchListCounts" resultType="com.xzkj.hv2.dashboard.DashboardMapper$WatchListCounts">
+        SELECT NVL(SUM(CASE WHEN LIST_TYPE = 'KEY' THEN 1 END), 0) KEY_COUNT,
+               NVL(SUM(CASE WHEN LIST_TYPE = 'TODAY' AND EXPIRE_DATE &gt;= #{today} THEN 1 END), 0) TODAY_COUNT
+          FROM WATCH_LIST
+    </select>
+
+    <select id="countEnabledDevices" resultType="int">
+        SELECT COUNT(*) FROM DEVICE WHERE STATUS = 1
+    </select>
+
+    <select id="countInWell" resultType="int">
+        SELECT COUNT(*) FROM V_POS_IN_WELL
+    </select>
+
+    <!-- ================= 展示模式 ================= -->
+
+    <select id="metricCounters" resultType="com.xzkj.hv2.dashboard.DashboardMapper$CounterRow">
+        SELECT METRIC, TOTAL_COUNT FROM METRIC_COUNTER
+    </select>
+
+    <!-- 手表数据时间：库里最新的一条体征的采集时间 -->
+    <select id="latestWatchDataTime" resultType="java.time.LocalDateTime">
+        SELECT MAX(COLLECTED_AT) FROM HEALTH_LATEST
+    </select>
+
+    <!-- 六类告警：今天出过事的人数；没绑定的表按设备号算一个"人" -->
+    <select id="alertPersonCounts" resultType="com.xzkj.hv2.dashboard.DashboardMapper$CategoryCount">
+        SELECT CATEGORY, COUNT(DISTINCT NVL(CARD_CODE, 'imei:' || DEVICE_IMEI)) PERSONS
+          FROM ALERT_EVENT
+         WHERE OCCURRED_AT &gt;= #{dayStart} AND OCCURRED_AT &lt; #{dayEnd} AND CATEGORY &lt;&gt; 'OTHER'
+         GROUP BY CATEGORY
+    </select>
+
+    <!-- 点开某一类告警：按人合并（条数 = 格子里的人数） -->
+    <select id="alertPersons" resultType="com.xzkj.hv2.dashboard.DashboardMapper$AlertPersonRow">
+        SELECT g.CARD_CODE, g.DEVICE_IMEI, p.PERSON_NAME, p.DEPT, g.EVENT_COUNT, g.OCCUR_TOTAL, g.LAST_AT,
+               g.LAST_CODE, g.LAST_VAL, g.LAST_SRC
+          FROM (SELECT NVL(CARD_CODE, 'imei:' || DEVICE_IMEI) WHO,
+                       MAX(CARD_CODE) CARD_CODE,
+                       MAX(DEVICE_IMEI) KEEP (DENSE_RANK LAST ORDER BY LAST_OCCURRED_AT, ID) DEVICE_IMEI,
+                       COUNT(*) EVENT_COUNT,
+                       SUM(OCCUR_COUNT) OCCUR_TOTAL,
+                       MAX(LAST_OCCURRED_AT) LAST_AT,
+                       MAX(CODE) KEEP (DENSE_RANK LAST ORDER BY LAST_OCCURRED_AT, ID) LAST_CODE,
+                       MAX(VAL_TEXT) KEEP (DENSE_RANK LAST ORDER BY LAST_OCCURRED_AT, ID) LAST_VAL,
+                       MAX(SRC) KEEP (DENSE_RANK LAST ORDER BY LAST_OCCURRED_AT, ID) LAST_SRC
+                  FROM ALERT_EVENT
+                 WHERE CATEGORY = #{category} AND OCCURRED_AT &gt;= #{dayStart} AND OCCURRED_AT &lt; #{dayEnd}
+                 GROUP BY NVL(CARD_CODE, 'imei:' || DEVICE_IMEI)) g
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = g.CARD_CODE
+         ORDER BY g.LAST_AT DESC, g.WHO
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <select id="countAlertPersons" resultType="int">
+        SELECT COUNT(DISTINCT NVL(CARD_CODE, 'imei:' || DEVICE_IMEI))
+          FROM ALERT_EVENT
+         WHERE CATEGORY = #{category} AND OCCURRED_AT &gt;= #{dayStart} AND OCCURRED_AT &lt; #{dayEnd}
+    </select>
+
+    <!-- 设备事件：低电、脱落等（SOS、跌倒在格子里，不重复算）。一段持续的事件已去重成一条 -->
+    <select id="countDeviceEvents" resultType="int">
+        SELECT COUNT(*)
+          FROM ALERT_EVENT
+         WHERE SRC = 'DEVICE' AND CATEGORY = 'OTHER' AND OCCURRED_AT &gt;= #{dayStart} AND OCCURRED_AT &lt; #{dayEnd}
+    </select>
+
+    <select id="deviceEvents" resultType="com.xzkj.hv2.dashboard.DashboardMapper$DeviceEventRow">
+        SELECT e.ID, e.CARD_CODE, e.DEVICE_IMEI, p.PERSON_NAME, e.CODE, e.OCCURRED_AT, e.LAST_OCCURRED_AT,
+               e.OCCUR_COUNT
+          FROM ALERT_EVENT e
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = e.CARD_CODE
+         WHERE e.SRC = 'DEVICE' AND e.CATEGORY = 'OTHER'
+           AND e.OCCURRED_AT &gt;= #{dayStart} AND e.OCCURRED_AT &lt; #{dayEnd}
+         ORDER BY e.LAST_OCCURRED_AT DESC, e.ID DESC
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <select id="keyPersons" resultType="com.xzkj.hv2.dashboard.DashboardMapper$KeyPersonRow">
+        SELECT w.CARD_CODE, p.PERSON_NAME, p.DEPT
+          FROM WATCH_LIST w
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = w.CARD_CODE
+         WHERE w.LIST_TYPE = 'KEY'
+         ORDER BY w.ADDED_AT DESC, w.ID DESC
+    </select>
+
+    <!-- ================= 底部三块 ================= -->
+
+    <select id="headcountSeries" resultType="com.xzkj.hv2.dashboard.DashboardMapper$SeriesPoint">
+        SELECT SNAPSHOT_TIME, IN_WELL_COUNT
+          FROM POS_HEADCOUNT_SERIES
+         WHERE SNAPSHOT_TIME &gt;= #{from} AND SNAPSHOT_TIME &lt; #{to}
+         ORDER BY SNAPSHOT_TIME
+    </select>
+
+    <!--
+      井下职工 → 应上线（绑定了启用的手表）→ 已上线（手表在在线窗口内上行过）→ 其中有"仍在发生"的六类告警的人。
+      仍在发生 = 六类告警事件的 LAST_OCCURRED_AT 在最近 ALERT_ACTIVE_MINUTES 分钟内；
+      activeDayStart 是 activeSince 那天的 0 点（事件不跨天，用来走 OCCURRED_AT 索引）。
+    -->
+    <select id="headcount" resultType="com.xzkj.hv2.dashboard.DashboardMapper$HeadcountRow">
+        WITH w AS (SELECT CARD_CODE FROM V_POS_IN_WELL),
+             a AS (SELECT DISTINCT CARD_CODE
+                     FROM ALERT_EVENT
+                    WHERE CARD_CODE IS NOT NULL AND CATEGORY &lt;&gt; 'OTHER'
+                      AND LAST_OCCURRED_AT &gt;= #{activeSince} AND OCCURRED_AT &gt;= #{activeDayStart})
+        <!-- ONLINE 是 Oracle 保留字，列名用 ONLINE_COUNT -->
+        SELECT (SELECT COUNT(*) FROM w) IN_WELL, x.EXPECTED, x.ONLINE_COUNT, x.ONLINE_ALERT
+          FROM (SELECT COUNT(d.IMEI) EXPECTED,
+                       NVL(SUM(CASE WHEN d.LAST_SEEN_AT &gt;= #{onlineSince} THEN 1 END), 0) ONLINE_COUNT,
+                       NVL(SUM(CASE WHEN d.LAST_SEEN_AT &gt;= #{onlineSince} AND a.CARD_CODE IS NOT NULL THEN 1 END), 0)
+                           ONLINE_ALERT
+                  FROM w
+                  JOIN DEVICE d ON d.CARD_CODE = w.CARD_CODE AND d.STATUS = 1
+                  LEFT JOIN a ON a.CARD_CODE = w.CARD_CODE) x
+    </select>
+
+    <sql id="inWellFrom">
+          FROM V_POS_IN_WELL w
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = w.CARD_CODE
+          LEFT JOIN DEVICE d ON d.CARD_CODE = w.CARD_CODE AND d.STATUS = 1
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = w.AREA_CODE
+        <where>
+            <if test="keyword != null">
+                INSTR(p.PERSON_NAME, #{keyword}) &gt; 0 OR INSTR(w.CARD_CODE, #{keyword}) &gt; 0
+            </if>
+        </where>
+    </sql>
+
+    <!-- 人员表：手表在线的排前面，其次离线、未绑定；同一状态按姓名 -->
+    <select id="inWellPersons" resultType="com.xzkj.hv2.dashboard.DashboardMapper$InWellPersonRow">
+        SELECT CARD_CODE, PERSON_NAME, DEPT, AREA_NAME, WATCH_STATE
+          FROM (SELECT w.CARD_CODE, p.PERSON_NAME, p.DEPT, ar.AREA_NAME,
+                       CASE WHEN d.IMEI IS NULL THEN 'UNBOUND'
+                            WHEN d.LAST_SEEN_AT &gt;= #{onlineSince} THEN 'ONLINE'
+                            ELSE 'OFFLINE' END WATCH_STATE
+                <include refid="inWellFrom"/>)
+         ORDER BY CASE WATCH_STATE WHEN 'ONLINE' THEN 0 WHEN 'OFFLINE' THEN 1 ELSE 2 END, PERSON_NAME, CARD_CODE
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <select id="countInWellPersons" resultType="int">
+        SELECT COUNT(*)
+        <include refid="inWellFrom"/>
+    </select>
+
+    <select id="stepsRank" resultType="com.xzkj.hv2.dashboard.DashboardMapper$StepRankRow">
+        SELECT s.CARD_CODE, p.PERSON_NAME, p.DEPT, s.STEPS
+          FROM STEP_DAILY s
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = s.CARD_CODE
+         WHERE s.STAT_DATE = #{statDate}
+         ORDER BY s.STEPS DESC, p.PERSON_NAME, s.CARD_CODE
+         FETCH FIRST #{limit} ROWS ONLY
+    </select>
+</mapper>

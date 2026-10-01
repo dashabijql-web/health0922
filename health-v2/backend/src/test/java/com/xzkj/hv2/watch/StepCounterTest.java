@@ -51,7 +51,8 @@ class StepCounterTest {
 
     @BeforeAll
     static void connect() {
-        good = factory(6379);
+        // 本项目的 Redis 容器 hv2-redis（AGENTS.md"环境"），可用环境变量 REDIS_PORT 改
+        good = factory(Integer.parseInt(System.getenv().getOrDefault("REDIS_PORT", "6380")));
         try {
             redisUp = "PONG".equals(good.getConnection().ping());
         } catch (RuntimeException e) {

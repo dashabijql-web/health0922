@@ -25,6 +25,53 @@
   --shine: rgba(255, 255, 255, 0.35);
   --title-gradient: linear-gradient(180deg, #f2fffb 0%, #7dffd9 45%, #19e6b0 100%);
 
+  /* ---- 阶段 3：入口页、动态数据页（颜色取自截图 1、13、16，docs/09） ---- */
+  --text-bright: #ffffff;
+  --text-dim-white: #c9d8d4;
+  --gold-bright: #f2c230;
+  --orange-glow: rgba(255, 140, 60, 0.75);
+  --min-yellow: #f5dc3c;
+  --min-yellow-glow: rgba(245, 220, 60, 0.45);
+  --ring-blue: #2f86f2;
+  /* 主区域 */
+  --stage-bg: #081c1a;
+  --stage-glow: rgba(20, 90, 92, 0.45);
+  --stage-btn-left: rgba(14, 92, 80, 0.95);
+  --stage-btn-right: rgba(6, 40, 36, 0.35);
+  --mode-btn-top: #4ed08d;
+  --mode-btn-bottom: #168f52;
+  --digit-bg-top: #0d2f2a;
+  --digit-bg-bottom: #061815;
+  /* 导航 */
+  --nav-bg-top: #02805e;
+  --nav-bg-bottom: #013d30;
+  /* 告警格子、表格、排行 */
+  --tile-bg-top: #032620;
+  --tile-bg-bottom: #01140f;
+  --table-head-bg: linear-gradient(180deg, #84b7bb, #5f949c);
+  --track-bg: #0b241d;
+  /* 曲线 */
+  --chart-line: #34f5a0;
+  --chart-area-top: rgba(25, 230, 176, 0.55);
+  --chart-area-bottom: rgba(25, 230, 176, 0.02);
+  --chart-point: #ffb547;
+  --chart-grid: rgba(127, 184, 171, 0.18);
+  /* 弹层（截图 13） */
+  --modal-mask: rgba(0, 0, 0, 0.45);
+  --modal-bg: #03312e;
+  --modal-border: #6dc1b2;
+  --modal-text: #ffffff;
+  --btn-bright: #2cfdbb;
+  --btn-bright-text: #0b2e29;
+  /* 入口页（截图 16） */
+  --portal-panel-far: rgba(0, 30, 32, 0.35);
+  --portal-panel-near: rgba(3, 98, 104, 0.85);
+  --portal-icon-ring: #8ff5e0;
+  --portal-btn-fill: #018a84;
+  --portal-btn-fill-hover: #029d96;
+  --portal-ring-inner: #035c47;
+  --portal-label-bg: #2f454b;
+
   --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-number: 'Orbitron', 'Noto Sans SC', monospace;
 

@@ -23,6 +23,7 @@
         <mybatis-starter.version>4.1.0</mybatis-starter.version>
         <sa-token.version>1.46.0</sa-token.version>
         <flyway-plugin.version>13.8.0</flyway-plugin.version>
+        <poi.version>5.5.1</poi.version>
     </properties>
 
     <dependencies>
@@ -74,6 +75,12 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-base</artifactId>
+        </dependency>
+        <!-- 佩戴情况导出 Excel（docs/05 第四节） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
         <!-- 只用其中的 BCrypt，不引入 Spring Security 的登录过滤链 -->
         <dependency>

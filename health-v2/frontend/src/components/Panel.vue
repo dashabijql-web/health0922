@@ -8,6 +8,8 @@
     <header v-if="title" class="panel__header">
       <span class="panel__slashes" aria-hidden="true">///</span>
       <h2 class="panel__title">{{ title }}</h2>
+      <p v-if="failedAt" class="panel__failed panel__failed--head" role="status"
+         :title="`刷新失败，显示的是 ${failedAt} 的数据`">刷新失败 · {{ failedAt }}</p>
       <div class="panel__extra"><slot name="extra" /></div>
     </header>
 
@@ -18,14 +20,16 @@
       <slot v-else />
     </div>
 
-    <p v-if="failedAt" class="panel__failed" role="status">刷新失败，显示的是 {{ failedAt }} 的数据</p>
+    <!-- 没有标题栏时写在右下角；有标题栏时写在标题栏里，不挡内容 -->
+    <p v-if="failedAt && !title" class="panel__failed" role="status">刷新失败，显示的是 {{ failedAt }} 的数据</p>
   </section>
 </template>
 
 <script setup lang="ts">
 // 带标题栏和四角装饰的面板（docs/07 第一部分"五、公共组件"，样式见 docs/09 第二节）。
 // 面板四种状态（docs/05 第二节）：加载中用 loading 显示骨架屏；没有数据/未录入在插槽里放 EmptyState；
-// 刷新失败时保留上次数据，并用 failedAt（上次成功的 hh:mm）在角落提示。
+// 刷新失败时保留上次数据，并用 failedAt（上次成功的 hh:mm）提示：有标题栏时在标题栏里写"刷新失败 · hh:mm"
+// （完整的"刷新失败，显示的是 hh:mm 的数据"在悬停提示和页面顶部横幅里），没有标题栏时写在右下角。
 defineProps<{
   title?: string
   loading?: boolean
@@ -122,6 +126,16 @@ defineProps<{
   margin: 0;
   font-size: 12px;
   color: var(--warn);
+}
+
+.panel__failed--head {
+  position: static;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.panel__failed--head + .panel__extra {
+  margin-left: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.report.WearExportMapper">
+
+    <!--
+      佩戴情况（docs/05 第四节"佩戴情况导出"）：那天有入井记录（POS_PRESENCE_DAILY）、且现在绑定着启用的手表的人；
+      那天 0 点到次日 0 点之间 HEALTH_RECORD 有他的记录算"数据上传正常"（任意时段都算，docs/00 第 20 项）。
+    -->
+    <select id="wearRows" resultType="com.xzkj.hv2.report.WearExportMapper$WearRow">
+        SELECT pd.CARD_CODE, p.PERSON_NAME, p.DEPT,
+               CASE WHEN EXISTS (SELECT 1 FROM HEALTH_RECORD r
+                                  WHERE r.CARD_CODE = pd.CARD_CODE
+                                    AND r.COLLECTED_AT &gt;= #{from} AND r.COLLECTED_AT &lt; #{to})
+                    THEN 1 ELSE 0 END UPLOADED
+          FROM POS_PRESENCE_DAILY pd
+          JOIN DEVICE d ON d.CARD_CODE = pd.CARD_CODE AND d.STATUS = 1
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = pd.CARD_CODE
+         WHERE pd.STAT_DATE = #{statDate}
+         ORDER BY p.DEPT, p.PERSON_NAME, pd.CARD_CODE
+    </select>
+</mapper>

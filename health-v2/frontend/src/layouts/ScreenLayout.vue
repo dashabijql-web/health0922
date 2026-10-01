@@ -10,6 +10,17 @@
         <div class="header__logo"><AppLogo /></div>
         <h1 class="header__title">职工健康管理系统</h1>
 
+        <!-- 导航：入口页没有（docs/09 第五节） -->
+        <nav v-if="showNav" class="header__nav" aria-label="页面导航">
+          <RouterLink to="/dashboard" :class="['nav-item', { 'nav-item--active': route.name === 'dashboard' }]">
+            动态数据
+          </RouterLink>
+          <button type="button" :class="['nav-item', { 'nav-item--active': route.path.startsWith('/archive') }]"
+                  @click="openArchive">
+            健康档案
+          </button>
+        </nav>
+
         <el-dropdown class="header__account" trigger="click" @command="onCommand">
           <button type="button" class="account" aria-label="账号菜单">
             <span class="account__avatar" aria-hidden="true">
@@ -37,7 +48,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppLogo from '@/components/AppLogo.vue'
 import ScaleScreen from '@/components/ScaleScreen.vue'
@@ -46,6 +57,14 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+const showNav = computed(() => route.meta.nav === true)
+
+function openArchive() {
+  // 健康档案在阶段 5 做（docs/08）
+  ElMessage.info('建设中')
+}
 
 const accountName = computed(() => {
   const name = auth.displayName
@@ -175,11 +194,68 @@ async function onCommand(command: string) {
   background: var(--border-glow);
 }
 
+.header__nav {
+  position: absolute;
+  left: 1392px;
+  top: 74px;
+  display: flex;
+  gap: 11px;
+}
+
+/* 平行四边形的深绿渐变底；当前页文字更亮、底更亮（docs/09 第二节"页头"） */
+.nav-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 154px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 22px;
+  letter-spacing: 2px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: skewX(-20deg);
+  background: linear-gradient(180deg, var(--nav-bg-top), var(--nav-bg-bottom));
+  border-bottom: 2px solid var(--accent-soft);
+  opacity: 0.6;
+}
+
+.nav-item--active {
+  color: var(--text-bright);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+.nav-item--active::before {
+  opacity: 1;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+}
+
+/* 页面按 1920×1080 画布的绝对坐标布局，主区域铺满画布（页头在它上面） */
 .screen__main {
   position: absolute;
-  left: 50px;
-  right: 50px;
-  top: 160px;
-  bottom: 50px;
+  inset: 0;
+  pointer-events: none;
+}
+
+.screen__main > :deep(*) {
+  pointer-events: auto;
+}
+
+.header {
+  z-index: 10;
 }
 </style>
