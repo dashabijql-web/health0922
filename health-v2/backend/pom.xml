@@ -62,6 +62,19 @@
             <artifactId>sa-token-spring-boot4-starter</artifactId>
             <version>${sa-token.version}</version>
         </dependency>
+        <!-- 手表 TCP 接入（docs/03 第二节）；版本由 Spring Boot 统一管理，和 Lettuce 用的是同一个 Netty -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-base</artifactId>
+        </dependency>
         <!-- 只用其中的 BCrypt，不引入 Spring Security 的登录过滤链 -->
         <dependency>
             <groupId>org.springframework.security</groupId>

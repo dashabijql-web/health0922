@@ -224,7 +224,9 @@ SELECT s.*
 | `MODEL` `BOUND_AT` | | 型号、绑定时间 |
 | `LAST_SEEN_AT` | TIMESTAMP(0) | 最后一次收到任何上行包的时间，决定是否在线（`03` 第五节）；只接受更晚的时间 |
 | `BATTERY_PCT` `BATTERY_TIME` | | 最新电量及其时间（仅来自心跳 `AP03`） |
-| `STATUS` | NUMBER(1) 默认 1 | 1 启用，0 停用 |
+| `STATUS` | NUMBER(1) 默认 1 | 1 启用，0 停用（停用的表按未登记处理，`03` 第二节） |
+
+检查约束：`IMEI` 必须是 15 位数字；`BATTERY_PCT` 在 1–100（0 是手表错报，不写入）。
 
 ### `HEALTH_RECORD`（月分区）
 
@@ -277,7 +279,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 
 ### `HEALTH_LATEST`
 
-主键（`CARD_CODE`, `METRIC`），`VAL1`、`VAL2`、`COLLECTED_AT`。每人每指标一行，写库时 `MERGE`（只接受时间更新的）。大屏、地图弹窗直接查它，不扫流水表。
+主键（`CARD_CODE`, `METRIC`），`VAL1`、`VAL2`、`COLLECTED_AT`、`MSG_ID`、`DEVICE_IMEI`。每人每指标一行，写库时 `MERGE`（只接受时间更新的；采集时间同一秒时 `MSG_ID` 大的算新，所以要存 `MSG_ID`）。大屏、地图弹窗直接查它，不扫流水表。
 
 ### `HEALTH_DAILY_SUMMARY`
 
@@ -291,11 +293,17 @@ CREATE UNIQUE INDEX UX_HR_MSG
 | `NORMAL_COUNT` | 落在正常范围内的样本数（按这个人所属岗位类别在统计当时的阈值） |
 | `RULE_GROUP` | 算 `NORMAL_COUNT` 时用的岗位类别 |
 
-定时任务每 5 分钟按 `IX_HR_TIME` 重算"今天"，每天 0:10 把"昨天"重算定稿。月报和大部分统计都基于这张表。几天合并时，平均值按 `SAMPLE_COUNT` 加权。
+另有 `UPDATED_AT`（这一行最近一次重算的时间）。`AVG_V` 是 NUMBER(7,2)，保留两位小数。
+
+定时任务每 5 分钟按 `IX_HR_TIME` 重算"今天"，每天 0:10 把"昨天"重算定稿（`health` 包的 `HealthDailySummaryJob`，阶段 2 实现）。每次整天重算、`MERGE` 写入，重复执行结果不变。月报和大部分统计都基于这张表。几天合并时，平均值按 `SAMPLE_COUNT` 加权。
+
+算 `NORMAL_COUNT`：每人每项指标用哪行阈值，规则和实时预警一样（`03` 第四节：这个人工种所属类别配了这一项就用它的，没配用 `DEFAULT` 的）；值在 [`LOW_LIMIT`, `HIGH_LIMIT`] 之内算正常，为空的一侧不限；阈值停用（`ENABLED = 0`）时全部算正常。血压拆成 `BP_SYS`、`BP_DIA` 两项分别统计。
+
+耗时（`10` 第 17 项，本机 Docker 里的 Oracle Free 实测，见 `03` 第九节）：重算一天所需时间和当天的流水条数大致成正比，约每千条 1.2 毫秒；1000 块表一天约 180 万条，重算约 2.2 秒，远小于 5 分钟的间隔。
 
 ### `STEP_DAILY`
 
-主键（`STAT_DATE`, `CARD_CODE`）；`STEPS`（当天累计步数，算法见 `03`）、`LAST_RAW`（最近一次手表计数器读数）、`UPDATED_AT`（这次读数的收到时间）。写入是覆盖，不是累加；只接受 `UPDATED_AT` 更晚的数据。
+主键（`STAT_DATE`, `CARD_CODE`）；`STEPS`（当天累计步数，算法见 `03`）、`LAST_RAW`（最近一次手表计数器读数）、`UPDATED_AT`（这次读数的收到时间，`TIMESTAMP(3)` 带毫秒：几次读数可能在同一秒内到达，要分得出先后）、`DEVICE_IMEI`（`LAST_RAW` 来自哪块表：Redis 丢了状态或换绑时从这张表取起点，只有同一块表的读数才能接着算增量，`03` 第五节）。写入是覆盖，不是累加；只接受 `UPDATED_AT` 更晚的数据。
 
 ### `METRIC_COUNTER`
 
@@ -305,7 +313,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 
 ### `JOB_GROUP`
 
-主键 `GROUP_CODE`（VARCHAR2(20 CHAR)）；`GROUP_NAME`（如"采掘"）、`SORT_NO`。建表时只有一行 `DEFAULT`（默认），不能删除。
+主键 `GROUP_CODE`（VARCHAR2(20 CHAR)）；`GROUP_NAME`（如"采掘"）、`SORT_NO`。建表时只有一行 `DEFAULT`（默认），不能删除：触发器 `TRG_JOB_GROUP_KEEP_DEFAULT` 在删除 `DEFAULT` 前报错（`ORA-20002`）。
 
 月报里按岗位不同的参数也放这里（可空，空则用 `DEFAULT` 的值；规则见 `07`）：
 
@@ -320,7 +328,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 
 ### `ALERT_RULE`
 
-主键（`GROUP_CODE`, `METRIC`），`GROUP_CODE` 外键 → `JOB_GROUP`；`METRIC` 取 `HEART_RATE` `SPO2` `TEMPERATURE` `BP_SYS` `BP_DIA`；`LOW_LIMIT`、`HIGH_LIMIT`（可空，空则不判断）、`SEVERITY`、`ENABLED`、`STABLE_PCT`、`UNSTABLE_PCT`（月报稳定性的两条分界线，`DEFAULT` 初始 90 和 70，见 `07`）、`UPDATED_AT`、`UPDATED_BY`。`DEFAULT` 类别五项指标都必须有；其他类别缺哪一行就用 `DEFAULT` 的那一行，某一行里 `STABLE_PCT`、`UNSTABLE_PCT` 为空也用 `DEFAULT` 的。查找顺序和初始值见 `03` 第四节。
+主键（`GROUP_CODE`, `METRIC`），`GROUP_CODE` 外键 → `JOB_GROUP`；`METRIC` 取 `HEART_RATE` `SPO2` `TEMPERATURE` `BP_SYS` `BP_DIA`；`LOW_LIMIT`、`HIGH_LIMIT`（可空，空则不判断；都有值时必须下限 < 上限）、`SEVERITY`（1 提示 / 2 一般 / 3 严重，默认 2）、`ENABLED`（1 启用 / 0 停用，默认 1）、`STABLE_PCT`、`UNSTABLE_PCT`（月报稳定性的两条分界线，`DEFAULT` 初始 90 和 70，见 `07`）、`UPDATED_AT`、`UPDATED_BY`。`DEFAULT` 类别五项指标都必须有；其他类别缺哪一行就用 `DEFAULT` 的那一行，某一行里 `STABLE_PCT`、`UNSTABLE_PCT` 为空也用 `DEFAULT` 的。查找顺序和初始值见 `03` 第四节。
 
 ### `ALERT_EVENT`
 
@@ -331,7 +339,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 | `SRC` | VARCHAR2(10 CHAR) | `THRESHOLD` 体征越界 / `DEVICE` 设备报警 |
 | `CODE` | VARCHAR2(20 CHAR) | `HR_HIGH` `HR_LOW` `SPO2_LOW` `TEMP_HIGH` `TEMP_LOW` `BP_SYS_HIGH` `BP_SYS_LOW` `BP_DIA_HIGH` `BP_DIA_LOW` `SOS` `FALL` `LOW_BATTERY` … |
 | `CATEGORY` | VARCHAR2(20 CHAR) | 大屏六类：`SOS` `FALL` `HEART_RATE` `BLOOD_PRESSURE` `SPO2` `TEMPERATURE`；其余 `OTHER` |
-| `SEVERITY` | NUMBER(1) | |
+| `SEVERITY` | NUMBER(1) | 1 提示 / 2 一般 / 3 严重（取值见 `03` 第一节、第四节） |
 | `VAL_TEXT` | VARCHAR2(50 CHAR) | 触发时的值，如 `132` 或 `152/98` |
 | `RULE_GROUP` | VARCHAR2(20 CHAR) | 判断体征越界时用的岗位类别；设备报警为空 |
 | `OCCURRED_AT` `LAST_OCCURRED_AT` | TIMESTAMP(0) | 第一次、最近一次发生（去重期间更新后者；两者一定在同一天，规则见 `03` 第四节） |
@@ -339,6 +347,8 @@ CREATE UNIQUE INDEX UX_HR_MSG
 | `DEVICE_IMEI` | VARCHAR2(15 CHAR) | |
 
 索引：`OCCURRED_AT`、（`CARD_CODE`, `OCCURRED_AT`）、（`CATEGORY`, `OCCURRED_AT`）。
+
+检查约束：卡编码和设备号至少有一个；`OCCURRED_AT` 和 `LAST_OCCURRED_AT` 在同一天且后者不早于前者（事件不跨天）。
 
 ### `WATCH_LIST`
 
@@ -365,7 +375,7 @@ V001__sys.sql
 | --- | --- | --- | --- |
 | 阶段 0 | 1、2 号 | 1、2 号 | 账号表、操作日志表、一个管理员账号 |
 | 阶段 1 | 多了 3 号 | 只执行 3 号 | 再多出定位的表 |
-| 阶段 2 | 多了 4、5 号 | 只执行 4、5 号 | 再多出手表、体征、预警的表 |
+| 阶段 2 | 多了 4、5 号 | 只执行 4、5 号 | 再多出手表、体征、预警的表（已执行） |
 
 到矿上部署时运行一次，它把 1 到 5 号按顺序全部执行，数据库就和开发时一样，不用人记先建哪张表。
 

@@ -22,6 +22,11 @@ spring:
       minimum-idle: 2
       connection-timeout: 10000
       connection-init-sql: ALTER SESSION SET TIME_ZONE = 'Asia/Shanghai'
+  task:
+    scheduling:
+      # 定时任务：定位扫描、缓冲写库（5 秒）、绑定和阈值刷新、日汇总；日汇总慢时不能挡住写库
+      pool:
+        size: 4
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -86,6 +91,40 @@ hv2:
     incomplete-timeout: 10m
     max-file-bytes: 20971520
     max-error-ratio: 0.2
+
+  watch:
+    # 手表 TCP 接入（docs/03）
+    tcp-enabled: ${WATCH_TCP_ENABLED:true}
+    tcp-port: ${WATCH_TCP_PORT:9001}
+    max-connections: ${WATCH_MAX_CONNECTIONS:2000}
+    # 最后上行时间在这个窗口内算"在线"
+    online-window-minutes: ${WATCH_ONLINE_WINDOW_MINUTES:20}
+    vital-stale-minutes: ${WATCH_VITAL_STALE_MINUTES:12}
+    # 每隔多少秒给每块表下发一项测量（心率→血压→血氧→体温轮换）
+    monitoring-refresh-seconds: ${WATCH_MONITORING_REFRESH_SECONDS:60}
+    login-timeout: 30s
+    idle-timeout: 10m
+    max-frame-bytes: 8192
+    binding-refresh-seconds: 60
+    worker-threads: 4
+    worker-queue: 10000
+    buffer:
+      flush-enabled: ${WATCH_BUFFER_FLUSH_ENABLED:true}
+      # 本项目的 Redis key 一律以 hv2: 开头
+      key-prefix: ${WATCH_BUFFER_KEY_PREFIX:hv2:watch:}
+      flush-millis: 5000
+      batch-size: 1000
+      memory-capacity: 10000
+      single-retries: 3
+      shutdown-drain-timeout: 20s
+  alert:
+    dedup-minutes: ${ALERT_DEDUP_MINUTES:30}
+    device-dedup-minutes: ${ALERT_DEVICE_DEDUP_MINUTES:2}
+    active-minutes: ${ALERT_ACTIVE_MINUTES:30}
+    rule-refresh-seconds: 60
+  health:
+    # HEALTH_DAILY_SUMMARY：每 5 分钟重算今天，0:10 定稿昨天
+    summary-enabled: ${HEALTH_SUMMARY_ENABLED:true}
 
 logging:
   level:

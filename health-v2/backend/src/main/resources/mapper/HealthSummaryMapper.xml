@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.health.HealthSummaryMapper">
+
+    <!--
+      重算某一天的 HEALTH_DAILY_SUMMARY（docs/04 第五节）。
+      v：这一天的样本，血压拆成收缩压 BP_SYS、舒张压 BP_DIA 两项（按 IX_HR_TIME 只读这一天）。
+      pr：每人每项指标实际用的阈值——这个人的工种归到哪个岗位类别，那个类别配了这一项就用它的，没配用 DEFAULT 的；
+          工种没归类、为空都算 DEFAULT。阈值停用（ENABLED=0）时不判异常，全部算正常。
+    -->
+    <update id="mergeDay">
+        MERGE INTO HEALTH_DAILY_SUMMARY t
+        USING (
+            WITH v AS (
+                SELECT CARD_CODE, CASE METRIC WHEN 'BLOOD_PRESSURE' THEN 'BP_SYS' ELSE METRIC END METRIC, VAL1 V
+                  FROM HEALTH_RECORD
+                 WHERE COLLECTED_AT &gt;= #{from} AND COLLECTED_AT &lt; #{to}
+                UNION ALL
+                SELECT CARD_CODE, 'BP_DIA', VAL2
+                  FROM HEALTH_RECORD
+                 WHERE COLLECTED_AT &gt;= #{from} AND COLLECTED_AT &lt; #{to}
+                   AND METRIC = 'BLOOD_PRESSURE' AND VAL2 IS NOT NULL
+            ),
+            pr AS (
+                SELECT c.CARD_CODE, d.METRIC,
+                       NVL2(o.METRIC, o.GROUP_CODE, d.GROUP_CODE) RULE_GROUP,
+                       NVL2(o.METRIC, o.LOW_LIMIT, d.LOW_LIMIT)   LOW_LIMIT,
+                       NVL2(o.METRIC, o.HIGH_LIMIT, d.HIGH_LIMIT) HIGH_LIMIT,
+                       NVL2(o.METRIC, o.ENABLED, d.ENABLED)       ENABLED
+                  FROM (SELECT DISTINCT CARD_CODE FROM v) c
+                  LEFT JOIN POS_PERSON p ON p.CARD_CODE = c.CARD_CODE
+                  LEFT JOIN JOB_KIND_GROUP k ON k.JOB_KIND = p.JOB_KIND
+                  JOIN ALERT_RULE d ON d.GROUP_CODE = 'DEFAULT'
+                  LEFT JOIN ALERT_RULE o ON o.GROUP_CODE = k.GROUP_CODE AND o.METRIC = d.METRIC
+            )
+            SELECT v.CARD_CODE, v.METRIC, MAX(v.V) MAX_V, MIN(v.V) MIN_V, ROUND(AVG(v.V), 2) AVG_V,
+                   COUNT(*) SAMPLE_COUNT,
+                   SUM(CASE WHEN pr.ENABLED = 0
+                              OR ((pr.LOW_LIMIT IS NULL OR v.V &gt;= pr.LOW_LIMIT)
+                                  AND (pr.HIGH_LIMIT IS NULL OR v.V &lt;= pr.HIGH_LIMIT))
+                            THEN 1 ELSE 0 END) NORMAL_COUNT,
+                   pr.RULE_GROUP
+              FROM v
+              JOIN pr ON pr.CARD_CODE = v.CARD_CODE AND pr.METRIC = v.METRIC
+             GROUP BY v.CARD_CODE, v.METRIC, pr.RULE_GROUP
+        ) s
+        ON (t.STAT_DATE = #{statDate} AND t.CARD_CODE = s.CARD_CODE AND t.METRIC = s.METRIC)
+        WHEN MATCHED THEN UPDATE SET
+             t.MAX_V = s.MAX_V, t.MIN_V = s.MIN_V, t.AVG_V = s.AVG_V, t.SAMPLE_COUNT = s.SAMPLE_COUNT,
+             t.NORMAL_COUNT = s.NORMAL_COUNT, t.RULE_GROUP = s.RULE_GROUP, t.UPDATED_AT = LOCALTIMESTAMP(0)
+        WHEN NOT MATCHED THEN INSERT (STAT_DATE, CARD_CODE, METRIC, MAX_V, MIN_V, AVG_V, SAMPLE_COUNT, NORMAL_COUNT,
+                                      RULE_GROUP)
+             VALUES (#{statDate}, s.CARD_CODE, s.METRIC, s.MAX_V, s.MIN_V, s.AVG_V, s.SAMPLE_COUNT, s.NORMAL_COUNT,
+                     s.RULE_GROUP)
+    </update>
+</mapper>

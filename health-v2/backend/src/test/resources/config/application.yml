@@ -1,0 +1,10 @@
+# 只在测试里生效（比 src/main/resources/application.yml 优先）：
+# 不监听 9001、不定时写库和重算日汇总（测试里显式调用），Redis key 用 hv2:test: 前缀，不碰运行中的数据。
+hv2:
+  watch:
+    tcp-enabled: false
+    buffer:
+      flush-enabled: false
+      key-prefix: "hv2:test:watch:"
+  health:
+    summary-enabled: false

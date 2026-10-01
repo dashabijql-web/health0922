@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.watch.WatchMapper">
+
+    <select id="selectEnabledDevices" resultType="com.xzkj.hv2.watch.WatchMapper$DeviceRow">
+        SELECT IMEI, CARD_CODE, LAST_SEEN_AT FROM DEVICE WHERE STATUS = 1
+    </select>
+
+    <select id="selectStepSeed" resultType="com.xzkj.hv2.watch.WatchMapper$StepSeed">
+        SELECT STAT_DATE, STEPS, LAST_RAW, UPDATED_AT, DEVICE_IMEI
+          FROM (SELECT STAT_DATE, STEPS, LAST_RAW, UPDATED_AT, DEVICE_IMEI
+                  FROM STEP_DAILY
+                 WHERE CARD_CODE = #{cardCode} AND STAT_DATE &lt;= #{statDate}
+                 ORDER BY STAT_DATE DESC)
+         WHERE ROWNUM = 1
+    </select>
+</mapper>

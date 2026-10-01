@@ -37,7 +37,8 @@ abstract class PositioningDbTestBase {
     static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 23, 10, 20, 0);
     static final Path ROOT = createTempRoot();
 
-    private static final List<String> TABLES = List.of("POS_INGEST_ERROR", "POS_INGEST_FILE", "POS_AREA",
+    // DEVICE 有外键指向 POS_PERSON（手表测试留下的），要先删
+    private static final List<String> TABLES = List.of("DEVICE", "POS_INGEST_ERROR", "POS_INGEST_FILE", "POS_AREA",
             "POS_STATION", "POS_PERSON", "POS_PERSON_STATE", "POS_PRESENCE_DAILY", "POS_HEADCOUNT_SERIES");
 
     @TestConfiguration

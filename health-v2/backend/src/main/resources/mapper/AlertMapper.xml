@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzkj.hv2.alert.AlertMapper">
+
+    <select id="selectRules" resultType="com.xzkj.hv2.alert.AlertMapper$RuleRow">
+        SELECT GROUP_CODE, METRIC, LOW_LIMIT, HIGH_LIMIT, SEVERITY, ENABLED FROM ALERT_RULE
+    </select>
+
+    <select id="selectKindGroups" resultType="com.xzkj.hv2.alert.AlertMapper$KindGroupRow">
+        SELECT JOB_KIND, GROUP_CODE FROM JOB_KIND_GROUP
+    </select>
+
+    <select id="selectPersonKinds" resultType="com.xzkj.hv2.alert.AlertMapper$PersonKindRow">
+        SELECT CARD_CODE, JOB_KIND FROM POS_PERSON WHERE JOB_KIND IS NOT NULL
+    </select>
+
+    <select id="selectRecentEvents" resultType="com.xzkj.hv2.alert.AlertMapper$ActiveEventRow">
+        SELECT ID, CARD_CODE, DEVICE_IMEI, CODE, OCCURRED_AT, LAST_OCCURRED_AT
+          FROM (SELECT e.*, ROW_NUMBER() OVER (
+                         PARTITION BY NVL(CARD_CODE, 'imei:' || DEVICE_IMEI), CODE
+                         ORDER BY LAST_OCCURRED_AT DESC, ID DESC) RN
+                  FROM ALERT_EVENT e
+                 WHERE OCCURRED_AT &gt;= #{dayStart} AND LAST_OCCURRED_AT &gt;= #{since})
+         WHERE RN = 1
+    </select>
+
+    <insert id="insertEvent" useGeneratedKeys="true" keyProperty="id" keyColumn="ID">
+        INSERT INTO ALERT_EVENT (CARD_CODE, SRC, CODE, CATEGORY, SEVERITY, VAL_TEXT, RULE_GROUP,
+                                 OCCURRED_AT, LAST_OCCURRED_AT, OCCUR_COUNT, DEVICE_IMEI)
+        VALUES (#{cardCode}, #{src}, #{code}, #{category}, #{severity}, #{valText}, #{ruleGroup},
+                #{occurredAt}, #{occurredAt}, 1, #{deviceImei})
+    </insert>
+
+    <update id="touchEvent">
+        UPDATE ALERT_EVENT
+           SET LAST_OCCURRED_AT = GREATEST(LAST_OCCURRED_AT, #{at}),
+               OCCUR_COUNT = OCCUR_COUNT + 1
+         WHERE ID = #{id}
+    </update>
+</mapper>
