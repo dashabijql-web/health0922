@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  健康档案、个人档案、名单（docs/05 第六～八节）。"现在""今天"由调用方按注入的 Clock 传进来。
+  健康档案只列绑定了启用的手表的人（docs/00 第 8 项）；个人档案任何人都能看（从地图、重点人员进来的可能没绑定）。
+  姓名、部门、工种按拼音排（SCHINESE_PINYIN_M），同名按卡编码。
+-->
+<mapper namespace="com.xzkj.hv2.archive.ArchiveMapper">
+
+    <!-- ================= 健康档案列表 ================= -->
+
+    <sql id="bound">
+        EXISTS (SELECT 1 FROM DEVICE d WHERE d.CARD_CODE = p.CARD_CODE AND d.STATUS = 1)
+    </sql>
+
+    <select id="depts" resultType="string">
+        SELECT DEPT
+          FROM (SELECT DISTINCT p.DEPT FROM POS_PERSON p WHERE p.DEPT IS NOT NULL AND <include refid="bound"/>)
+         ORDER BY NLSSORT(DEPT, 'NLS_SORT=SCHINESE_PINYIN_M'), DEPT
+    </select>
+
+    <select id="jobKinds" resultType="string">
+        SELECT JOB_KIND
+          FROM (SELECT DISTINCT p.JOB_KIND FROM POS_PERSON p WHERE p.JOB_KIND IS NOT NULL AND <include refid="bound"/>)
+         ORDER BY NLSSORT(JOB_KIND, 'NLS_SORT=SCHINESE_PINYIN_M'), JOB_KIND
+    </select>
+
+    <sql id="personWhere">
+         WHERE <include refid="bound"/>
+        <if test="dept != null">AND p.DEPT = #{dept}</if>
+        <if test="jobKind != null">AND p.JOB_KIND = #{jobKind}</if>
+        <!-- 按普通文字"包含"查，% 和 _ 不是通配符；输卡号后 5 位也能查到 -->
+        <if test="keyword != null">
+            AND (INSTR(p.PERSON_NAME, #{keyword}) &gt; 0 OR INSTR(p.CARD_CODE, #{keyword}) &gt; 0)
+        </if>
+    </sql>
+
+    <select id="countPersons" resultType="int">
+        SELECT COUNT(*) FROM POS_PERSON p
+        <include refid="personWhere"/>
+    </select>
+
+    <select id="persons" resultType="com.xzkj.hv2.archive.ArchiveMapper$PersonRow">
+        SELECT p.CARD_CODE, p.PERSON_NAME, p.JOB_KIND, p.DEPT, p.AGE
+          FROM POS_PERSON p
+        <include refid="personWhere"/>
+         ORDER BY NLSSORT(p.PERSON_NAME, 'NLS_SORT=SCHINESE_PINYIN_M') NULLS LAST, p.CARD_CODE
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <!-- ================= 个人档案 ================= -->
+
+    <!-- 位置的写法和地图体征卡一样（MapMapper.xml 的 card） -->
+    <select id="detail" resultType="com.xzkj.hv2.archive.ArchiveMapper$DetailRow">
+        SELECT p.CARD_CODE, p.PERSON_NAME, p.JOB_KIND, p.DEPT, p.AGE, p.AGE_UPDATED_BY, p.AGE_UPDATED_AT,
+               CASE WHEN w.CARD_CODE IS NULL THEN 0 ELSE 1 END IN_WELL,
+               ar.AREA_NAME, w.STATION_CODE, st.STATION_NAME VENDOR_NAME, m.DISPLAY_NAME,
+               sar.AREA_NAME STATION_AREA_NAME, st.RUN_STATUS, m.X, w.SRC_DATA_TIME POS_TIME,
+               d.IMEI, d.LAST_SEEN_AT, d.BATTERY_PCT, d.BATTERY_TIME
+          FROM POS_PERSON p
+          LEFT JOIN V_POS_IN_WELL w ON w.CARD_CODE = p.CARD_CODE
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = w.AREA_CODE
+          LEFT JOIN POS_STATION st ON st.STATION_CODE = w.STATION_CODE
+          LEFT JOIN POS_AREA sar ON sar.AREA_CODE = SUBSTR(w.STATION_CODE, 1, 16)
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = w.STATION_CODE
+          LEFT JOIN DEVICE d ON d.CARD_CODE = p.CARD_CODE AND d.STATUS = 1
+         WHERE p.CARD_CODE = #{cardCode}
+    </select>
+
+    <select id="latestVitals" resultType="com.xzkj.hv2.archive.ArchiveMapper$VitalRow">
+        SELECT METRIC, VAL1, VAL2, COLLECTED_AT FROM HEALTH_LATEST WHERE CARD_CODE = #{cardCode}
+    </select>
+
+    <select id="todaySteps" resultType="com.xzkj.hv2.archive.ArchiveMapper$StepRow">
+        SELECT STEPS, UPDATED_AT FROM STEP_DAILY WHERE STAT_DATE = #{today} AND CARD_CODE = #{cardCode}
+    </select>
+
+    <select id="listsOf" resultType="com.xzkj.hv2.archive.ArchiveMapper$ListRow">
+        SELECT ID, LIST_TYPE, NOTE, EXPIRE_DATE, ADDED_BY, ADDED_AT
+          FROM WATCH_LIST
+         WHERE CARD_CODE = #{cardCode} AND (LIST_TYPE = 'KEY' OR EXPIRE_DATE &gt;= #{today})
+    </select>
+
+    <!-- 按 IX_HR_CARD_METRIC_TIME 取一天的读数 -->
+    <select id="trend" resultType="com.xzkj.hv2.archive.ArchiveMapper$PointRow">
+        SELECT COLLECTED_AT, VAL1, VAL2
+          FROM HEALTH_RECORD
+         WHERE CARD_CODE = #{cardCode} AND METRIC = #{metric}
+           AND COLLECTED_AT &gt;= #{from} AND COLLECTED_AT &lt; #{to}
+         ORDER BY COLLECTED_AT, MSG_ID
+    </select>
+
+    <select id="steps" resultType="com.xzkj.hv2.archive.ArchiveMapper$StepDayRow">
+        SELECT STAT_DATE, STEPS
+          FROM STEP_DAILY
+         WHERE CARD_CODE = #{cardCode} AND STAT_DATE BETWEEN #{from} AND #{to}
+         ORDER BY STAT_DATE
+    </select>
+
+    <select id="countAlerts" resultType="int">
+        SELECT COUNT(*) FROM ALERT_EVENT WHERE CARD_CODE = #{cardCode}
+    </select>
+
+    <!-- 按 (CARD_CODE, OCCURRED_AT) 索引倒着取 -->
+    <select id="alerts" resultType="com.xzkj.hv2.archive.ArchiveMapper$AlertRow">
+        SELECT ID, SRC, CODE, CATEGORY, VAL_TEXT, OCCURRED_AT, LAST_OCCURRED_AT, OCCUR_COUNT
+          FROM ALERT_EVENT
+         WHERE CARD_CODE = #{cardCode}
+         ORDER BY OCCURRED_AT DESC, ID DESC
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <select id="personExists" resultType="boolean">
+        SELECT COUNT(*) FROM POS_PERSON WHERE CARD_CODE = #{cardCode}
+    </select>
+
+    <!-- ================= 年龄 ================= -->
+
+    <select id="lockAge" resultType="com.xzkj.hv2.archive.ArchiveMapper$AgeRow">
+        SELECT CARD_CODE, AGE FROM POS_PERSON WHERE CARD_CODE = #{cardCode} FOR UPDATE
+    </select>
+
+    <update id="updateAge">
+        UPDATE POS_PERSON
+           SET AGE = #{age}, AGE_UPDATED_BY = #{username}, AGE_UPDATED_AT = #{now}
+         WHERE CARD_CODE = #{cardCode}
+    </update>
+
+    <!-- ================= 名单 ================= -->
+
+    <sql id="listItem">
+        SELECT l.ID, l.CARD_CODE, p.PERSON_NAME, p.DEPT, l.LIST_TYPE, l.NOTE, l.EXPIRE_DATE, l.ADDED_BY, l.ADDED_AT
+          FROM WATCH_LIST l
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = l.CARD_CODE
+    </sql>
+
+    <select id="watchList" resultType="com.xzkj.hv2.archive.ArchiveMapper$ListItemRow">
+        <include refid="listItem"/>
+         WHERE l.LIST_TYPE = #{type} AND (l.LIST_TYPE = 'KEY' OR l.EXPIRE_DATE &gt;= #{today})
+         ORDER BY l.ADDED_AT DESC, l.ID DESC
+    </select>
+
+    <select id="watchListItem" resultType="com.xzkj.hv2.archive.ArchiveMapper$ListItemRow">
+        <include refid="listItem"/>
+         WHERE l.ID = #{id}
+    </select>
+
+    <!-- FOR UPDATE 只锁 WATCH_LIST 这一行（OF l），不锁人员表 -->
+    <select id="lockWatchListItem" resultType="com.xzkj.hv2.archive.ArchiveMapper$ListItemRow">
+        <include refid="listItem"/>
+         WHERE l.CARD_CODE = #{cardCode} AND l.LIST_TYPE = #{type}
+           FOR UPDATE OF l.ID
+    </select>
+
+    <select id="lockWatchListById" resultType="com.xzkj.hv2.archive.ArchiveMapper$ListItemRow">
+        <include refid="listItem"/>
+         WHERE l.ID = #{id}
+           FOR UPDATE OF l.ID
+    </select>
+
+    <update id="mergeWatchList">
+        MERGE INTO WATCH_LIST t
+        USING DUAL ON (t.CARD_CODE = #{cardCode} AND t.LIST_TYPE = #{type})
+        WHEN MATCHED THEN UPDATE SET
+             t.NOTE = #{note}, t.EXPIRE_DATE = #{expireDate}, t.ADDED_BY = #{username}, t.ADDED_AT = #{now}
+        WHEN NOT MATCHED THEN INSERT (CARD_CODE, LIST_TYPE, NOTE, EXPIRE_DATE, ADDED_BY, ADDED_AT)
+             VALUES (#{cardCode}, #{type}, #{note}, #{expireDate}, #{username}, #{now})
+    </update>
+
+    <delete id="deleteWatchList">
+        DELETE FROM WATCH_LIST WHERE ID = #{id}
+    </delete>
+</mapper>

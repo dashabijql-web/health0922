@@ -79,7 +79,7 @@
     <div ref="popupEl" class="map-stage__popup">
       <template v-if="s.popup.value?.coord">
         <MapPersonCard v-if="s.popup.value.kind === 'card'" :person="s.popup.value.group[0]" :data="s.card.data.value"
-                       :loading="s.card.loading.value" :docked="false" @close="s.closePopup" @archive="soon"
+                       :loading="s.card.loading.value" :docked="false" @close="s.closePopup" @archive="openArchive"
                        @place="s.goPlace" />
         <div v-else class="map-stage__group" role="dialog" aria-label="同一基站的人">
           <p class="map-stage__group-title">
@@ -102,7 +102,7 @@
     <!-- 人所在基站没摆放：地图不动，卡片停在上方并提示 -->
     <MapPersonCard v-if="s.popup.value && !s.popup.value.coord" class="map-stage__docked" :person="s.popup.value.group[0]"
                    :data="s.card.data.value" :loading="s.card.loading.value" docked @close="s.closePopup"
-                   @archive="soon" @place="s.goPlace" />
+                   @archive="openArchive" @place="s.goPlace" />
 
     <PlacementPanel
       v-if="s.placing.value"
@@ -142,7 +142,7 @@
 // 状态和动作在 map/use-map-stage.ts，地图图层和样式在 map/mine-map.ts。
 import 'ol/ol.css'
 import { ref, toRef } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import type { WatchState } from '@/api/dashboard'
 import EmptyState from '@/components/EmptyState.vue'
 import ScreenButton from '@/components/ScreenButton.vue'
@@ -169,9 +169,12 @@ const s = useMapStage({ mapEl, popupEl }, toRef(props, 'locate'))
 const unplacedOpen = ref(false)
 const WATCH_TEXT: Record<WatchState, string> = { ONLINE: '手表在线', OFFLINE: '手表离线', UNBOUND: '未绑定手表' }
 
-function soon() {
-  // 个人档案在阶段 5 做（docs/09 第九节第 21 项）
-  ElMessage.info('建设中')
+const router = useRouter()
+
+/** 体征卡的"档案"：跳到这个人的个人档案（docs/05 第五节） */
+function openArchive() {
+  const card = s.popup.value?.group[0]?.cardCode
+  if (card) void router.push(`/archive/${card}`)
 }
 </script>
 

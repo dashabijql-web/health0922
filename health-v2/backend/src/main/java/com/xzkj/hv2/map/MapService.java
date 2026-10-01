@@ -25,6 +25,7 @@ import com.xzkj.hv2.map.MapViews.StationList;
 import com.xzkj.hv2.map.MapViews.StationLog;
 import com.xzkj.hv2.map.MapViews.Vital;
 import com.xzkj.hv2.map.MapViews.Watch;
+import com.xzkj.hv2.positioning.StationNames;
 import com.xzkj.hv2.watch.WatchProperties;
 
 import tools.jackson.databind.JsonNode;

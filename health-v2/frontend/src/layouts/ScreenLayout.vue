@@ -15,10 +15,9 @@
           <RouterLink to="/dashboard" :class="['nav-item', { 'nav-item--active': route.name === 'dashboard' }]">
             动态数据
           </RouterLink>
-          <button type="button" :class="['nav-item', { 'nav-item--active': route.path.startsWith('/archive') }]"
-                  @click="openArchive">
+          <RouterLink to="/archive" :class="['nav-item', { 'nav-item--active': route.path.startsWith('/archive') }]">
             健康档案
-          </button>
+          </RouterLink>
         </nav>
 
         <el-dropdown class="header__account" trigger="click" @command="onCommand">
@@ -60,11 +59,6 @@ const router = useRouter()
 const route = useRoute()
 
 const showNav = computed(() => route.meta.nav === true)
-
-function openArchive() {
-  // 健康档案在阶段 5 做（docs/08）
-  ElMessage.info('建设中')
-}
 
 const accountName = computed(() => {
   const name = auth.displayName

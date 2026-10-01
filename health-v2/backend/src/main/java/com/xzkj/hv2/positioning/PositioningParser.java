@@ -85,7 +85,8 @@ public final class PositioningParser {
             }
             rows.put(row.key(), row);
         }
-        return new ParsedFile(type, headerTime, lineNo, List.copyOf(rows.values()), List.copyOf(issues));
+        return new ParsedFile(type, headerTime, lineNo, List.copyOf(rows.values()), List.copyOf(issues),
+                Map.copyOf(lineOfKey));
     }
 
     private static LocalDateTime parseHeader(PositioningFileType type, String expectedMineCode, String header)

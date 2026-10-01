@@ -18,6 +18,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class OperationLogService {
 
+    /** 系统改动时日志里的登录名（账号 ID 为空，和真实账号区分开） */
+    public static final String SYSTEM = "SYSTEM";
+
     private final OperationLogMapper mapper;
     private final SessionGateway session;
     private final ObjectMapper objectMapper;
@@ -37,6 +40,15 @@ public class OperationLogService {
         CurrentUser user = session.currentUser();
         mapper.insert(new OperationLogEntry(
                 user.id(), user.username(), action.name(), targetType, targetId,
+                toJson(before), toJson(after)));
+    }
+
+    /**
+     * 系统自己做的改动（没有登录用户，如定位文件入库时清空年龄）：账号 ID 为空，登录名记 {@link #SYSTEM}。
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordSystem(OperationAction action, String targetType, String targetId, Object before, Object after) {
+        mapper.insert(new OperationLogEntry(null, SYSTEM, action.name(), targetType, targetId,
                 toJson(before), toJson(after)));
     }
 

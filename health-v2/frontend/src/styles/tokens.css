@@ -111,6 +111,62 @@
   --card-warn-text: #3a2600;
   --card-action-hi: #ffe680;
 
+  /* ---- 阶段 5：健康档案、个人档案（颜色取自截图 3、4，docs/09 第六、七节） ---- */
+  /* 筛选条：近黑的圆角条，里面是青蓝描边的圆角输入框 */
+  --filter-bar-bg: rgba(2, 6, 6, 0.85);
+  --filter-bar-border: rgba(29, 233, 182, 0.08);
+  --filter-input-bg: #03080b;
+  --filter-input-border: #1b5a66;
+  --filter-input-glow: rgba(40, 150, 170, 0.45);
+  --filter-placeholder: #8fa9ad;
+  /* 胶囊按钮：查询、重置是绿色，健康数据汇总是蓝色 */
+  --pill-green-top: #2fe08a;
+  --pill-green-bottom: #128a50;
+  --pill-blue-top: #3db4dc;
+  --pill-blue-bottom: #0b5a7a;
+  /* 人员卡片：深青色底，中间偏亮 */
+  --archive-card-center: #0a4f46;
+  --archive-card-edge: #06201e;
+  --archive-card-border: rgba(60, 170, 155, 0.35);
+  --archive-label: #c9d8d4;
+  --archive-value: #3ee0bd;
+  /* 卡片底部金色按钮 */
+  --gold-btn-bg: rgba(78, 104, 46, 0.62);
+  --gold-btn-border: rgba(214, 200, 86, 0.55);
+  --gold-btn-text: #e8d65c;
+  --gold-btn-corner: #f6e77e;
+  /* 左右翻页的半圆按钮 */
+  --page-arrow-top: #22b07c;
+  --page-arrow-bottom: #0c4434;
+  /* 默认头像（我们自己画的：浅青底、深色头发、深色西装） */
+  --avatar-disk: #8ef3e2;
+  --avatar-disk-edge: #3f8f86;
+  --avatar-ring: #0b7a5f;
+  --avatar-ring-glow: rgba(25, 230, 176, 0.55);
+  --avatar-dot: #c8fff2;
+  --avatar-skin: #ee8d7e;
+  --avatar-hair: #2b2527;
+  --avatar-suit: #2f3a3d;
+  --avatar-shirt: #f4f4f2;
+  --avatar-tie: #d9a832;
+  /* 个人档案左侧主区域：比其他面板更亮一点的深蓝绿渐变 */
+  --profile-stage-top: #0d3d41;
+  --profile-stage-bottom: #061e1f;
+  --profile-stage-glow: rgba(30, 140, 130, 0.35);
+  --profile-card-bg: rgba(9, 79, 71, 0.55);
+  --profile-icon-btn: rgba(10, 60, 52, 0.85);
+  --profile-icon-ring: #2f8f7c;
+  /* 3D 人体（three.js 画在 canvas 上，不认 CSS 变量，组件里读出实际值） */
+  --body-holo: #38e8ff;
+  --body-platform: #14b8a6;
+  --body-platform-ring: #19e6b0;
+  /* 当前体征格子 */
+  --vital-cell-bg: rgba(1, 30, 22, 0.85);
+  --vital-cell-border: rgba(29, 233, 182, 0.14);
+  --vital-icon: #11dc96;
+  --chart-line-2: #ffb547;
+  --chart-tooltip-bg: rgba(4, 28, 25, 0.92);
+
   --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-number: 'Orbitron', 'Noto Sans SC', monospace;
 

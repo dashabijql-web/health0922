@@ -59,9 +59,9 @@
 | 列 | 类型 | 说明 |
 | --- | --- | --- |
 | `ID` | 自增主键 | |
-| `USER_ID` `USERNAME` | | 谁（登录名冗余存一份，账号改名后日志仍可读） |
+| `USER_ID` `USERNAME` | | 谁（登录名冗余存一份，账号改名后日志仍可读）。系统自己做的改动（如定位文件里卡编码换了姓名时清空年龄，`02` 第四节）`USER_ID` 为空、`USERNAME` 写 `SYSTEM` |
 | `ACTION` | VARCHAR2(30 CHAR) | `STATION_PLACE` `STATION_MOVE` `STATION_RENAME` `STATION_DELETE` `PERSON_AGE_SET` `ALERT_RULE_SET` `JOB_GROUP_SET` `JOB_KIND_GROUP_SET` `WATCH_LIST_ADD` `WATCH_LIST_REMOVE` |
-| `TARGET_TYPE` `TARGET_ID` | | 对象类型和编号，如 `STATION` + 基站编码 |
+| `TARGET_TYPE` `TARGET_ID` | | 对象类型和编号：基站摆放是 `STATION` + 基站编码；年龄录入和名单加入/移除是 `PERSON` + 卡编码（按人能查到他的全部改动） |
 | `BEFORE_JSON` `AFTER_JSON` | CLOB | 改动前后（新增时前者为空，删除时后者为空） |
 | `CREATED_AT` | TIMESTAMP(0) | 何时 |
 
@@ -166,7 +166,7 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 | `JOB_KIND` `JOB_TITLE` | VARCHAR2(50 CHAR) | 工种、职务（厂家，只读；"未设置"存 `NULL`） |
 | `DEPT` | VARCHAR2(100 CHAR) | 部门（厂家，只读，原样） |
 | `IS_LEADER` `IS_SPECIAL` | NUMBER(1) | 是否矿领导、特种人员 |
-| `AGE` | NUMBER(3) | **年龄，人工录入**，为空显示"未录入" |
+| `AGE` | NUMBER(3) | **年龄，人工录入**（个人档案，16–75），为空显示"未录入"。同一卡编码在 `RYXX` 里换了姓名时被清空（`02` 第四节） |
 | `AGE_UPDATED_BY` `AGE_UPDATED_AT` | | 谁、何时录入 |
 | `FROM_RYXX` | NUMBER(1) | 1 来自 `RYXX`；0 只是从 `RYSS` 补录的（缺工种、部门） |
 | `SRC_DATA_TIME` | TIMESTAMP(0) | 厂家字段依据的文件时间 |
@@ -352,7 +352,7 @@ CREATE UNIQUE INDEX UX_HR_MSG
 
 ### `WATCH_LIST`
 
-`ID`、`CARD_CODE`、`LIST_TYPE`（`KEY` 重点监护 / `TODAY` 今日关注）、`NOTE`、`EXPIRE_DATE`（`TODAY` 类型当天有效）、`ADDED_BY`、`ADDED_AT`。唯一（`CARD_CODE`, `LIST_TYPE`）。加入时按这两列 `MERGE`：已有（包括已过期的"今日关注"）就覆盖备注、有效期、加入人和时间，所以第二天可以再次加入同一个人。名单只靠人工加入和移除（`05` 第八节），加入、移除都写操作日志。
+`ID`、`CARD_CODE`、`LIST_TYPE`（`KEY` 重点监护 / `TODAY` 今日关注）、`NOTE`、`EXPIRE_DATE`（`TODAY` 类型当天有效）、`ADDED_BY`、`ADDED_AT`。唯一（`CARD_CODE`, `LIST_TYPE`）。加入时按这两列 `MERGE`：已有（包括已过期的"今日关注"）就覆盖备注、有效期、加入人和时间，所以第二天可以再次加入同一个人。名单只靠人工加入和移除（`05` 第八节），加入、移除都写操作日志。没有外键指向 `POS_PERSON`，加入时由后端检查这个人存在。
 
 ## 七、迁移脚本
 

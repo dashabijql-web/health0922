@@ -9,6 +9,7 @@
 // 截图保存在 runtime/dev/smoke/（不入库）。任何一项失败退出码为 1。
 //
 // 之后每个阶段新增页面时，往 PAGES 里加一行。
+// 所有交互只看不改：不保存年龄、不加入/移出名单、不保存基站摆放（这些都会写删不掉的操作日志）。
 
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
@@ -46,8 +47,18 @@ const PAGES = [
     interact: dashboardInteract },
   { name: 'dashboard-map', hash: '#/dashboard?mode=map', selector: '.map-stage', text: '地图模式', charts: 1,
     interact: mapInteract },
+  { name: 'archive', hash: '#/archive', selector: '.archive__bar', text: '健康数据汇总', charts: 0,
+    interact: archiveInteract },
+  // 个人档案：卡编码运行时从接口取（健康档案第一个人）；图表数随数据而定，在交互里逐个面板检查
+  { name: 'person-archive', hash: () => (firstCard ? `#/archive/${firstCard}` : null), selector: '.info',
+    text: '姓名', interact: personInteract },
   { name: 'dev-components', hash: '#/dev/components', selector: '.preview', dev: true }
 ]
+
+/** 健康档案第一个人的卡编码（登录后从接口取）；没有绑定手表的人时为 null，个人档案页跳过 */
+let firstCard = null
+/** 进出个人档案的轮数（3D 人体释放检查） */
+const BODY_ROUNDS = Number(process.env.SMOKE_BODY_ROUNDS ?? 6)
 
 const failures = []
 const fail = (msg) => {
@@ -215,6 +226,230 @@ async function mapInteract(page, label) {
   else fail(`${label}：没有切回展示模式`)
 }
 
+/** 带着页面里的登录令牌调接口，返回 data */
+async function apiGet(page, url) {
+  return page.evaluate(async (u) => {
+    const r = await fetch(`/api${u}`, { headers: { satoken: localStorage.getItem('hv2-token') ?? '' } })
+    return (await r.json()).data
+  }, url)
+}
+
+/** 页面已经下载过的脚本里有没有 three.js（开发模式是 deps/three.js，打包后是 BodyModel3D 的分包） */
+async function threeLoaded(page) {
+  return page.evaluate(() => performance.getEntriesByType('resource')
+    .some((e) => /\/deps\/three\.js|\/three[._-]|BodyModel3D/.test(e.name) || e.name.endsWith('.glb')))
+}
+
+/** 健康档案：卡片数、总数、翻页、部门/工种/姓名筛选、重置、打开个人档案 */
+async function archiveInteract(page, label) {
+  const first = await apiGet(page, '/archive/persons?page=1&size=12')
+  await page.locator('.person-card, .archive__empty').first().waitFor({ timeout: 5000 }).catch(() => null)
+  const cards = await page.locator('.person-card').count()
+  if (cards === Math.min(12, first.total)) pass(`${label}：第 1 页 ${cards} 张卡片（接口总数 ${first.total}）`)
+  else fail(`${label}：卡片 ${cards} 张，接口总数 ${first.total}`)
+  const countText = async () => (await page.locator('.archive__count').textContent())?.replace(/\s+/g, '') ?? ''
+  const expectTotal = async (total, what) => {
+    const ok = await page.waitForFunction((t) => document.querySelector('.archive__count')?.textContent
+      ?.replace(/\s+/g, '').startsWith(`共${t}人`), total, { timeout: 5000 }).then(() => true, () => false)
+    if (ok) pass(`${label}：${what}，共 ${total} 人与接口一致`)
+    else fail(`${label}：${what}，页面"${await countText()}"，接口 ${total}`)
+  }
+  await expectTotal(first.total, '不筛选')
+  if (await threeLoaded(page)) fail(`${label}：健康档案列表就下载了 three.js 或人体模型`)
+  else pass(`${label}：列表页没有下载 three.js 和人体模型`)
+
+  const pages = Math.max(1, Math.ceil(first.total / 12))
+  if (pages > 1) {
+    await page.locator('.archive__arrow--next').click()
+    const p2 = await apiGet(page, '/archive/persons?page=2&size=12')
+    const ok = await page.waitForFunction((name) => document.querySelector('.person-card__name')?.textContent === name,
+      p2.list[0]?.name ?? '未录入', { timeout: 5000 }).then(() => true, () => false)
+    if (ok && (await countText()).includes(`第2/${pages}页`)) pass(`${label}：右箭头翻到第 2 页，第一张是 ${p2.list[0]?.name}`)
+    else fail(`${label}：右箭头翻页不对（${await countText()}）`)
+    await page.locator('.archive__arrow--prev').click()
+    await page.waitForFunction(() => document.querySelector('.archive__count')?.textContent?.replace(/\s+/g, '').includes('第1/'),
+      null, { timeout: 5000 }).catch(() => null)
+  }
+  if (await page.locator('.archive__arrow--prev').isDisabled()) pass(`${label}：第 1 页时左箭头不可点`)
+  else fail(`${label}：第 1 页时左箭头还能点`)
+
+  const filters = await apiGet(page, '/archive/filters')
+  const enc = encodeURIComponent
+  if (filters.depts.length > 0) {
+    const dept = filters.depts[0]
+    await page.locator('.archive__dept input').click()
+    await page.locator('.archive__dept .screen-select__option', { hasText: dept }).first().click()
+    await page.getByRole('button', { name: '查询', exact: true }).click()
+    const r = await apiGet(page, `/archive/persons?dept=${enc(dept)}&size=12`)
+    await expectTotal(r.total, `部门"${dept}"`)
+    if (filters.jobKinds.length > 0) {
+      const job = filters.jobKinds[filters.jobKinds.length - 1]
+      await page.locator('.archive__job input').fill(job.slice(0, 2))
+      await page.locator('.archive__job .screen-select__option', { hasText: job }).first().click()
+      await page.getByRole('button', { name: '查询', exact: true }).click()
+      const r2 = await apiGet(page, `/archive/persons?dept=${enc(dept)}&jobKind=${enc(job)}&size=12`)
+      await expectTotal(r2.total, `部门"${dept}" + 工种"${job}"（输入文字过滤后选中）`)
+    }
+    await page.getByRole('button', { name: '重置', exact: true }).click()
+    await expectTotal(first.total, '重置')
+  }
+  const name = first.list[0]?.name
+  if (name) {
+    const kw = name.slice(-1)
+    await page.locator('.archive__keyword').fill(kw)
+    await page.locator('.archive__keyword').press('Enter')
+    const r = await apiGet(page, `/archive/persons?keyword=${enc(kw)}&size=12`)
+    await expectTotal(r.total, `姓名包含"${kw}"`)
+    const names = await page.locator('.person-card__name').allTextContents()
+    const tail = first.list[0].cardCode.slice(-5)
+    if (names.length > 0 && names.every((n) => n.includes(kw))) pass(`${label}：查到的 ${names.length} 人姓名都含"${kw}"`)
+    else fail(`${label}：按姓名查询结果不对：${names.join('、')}`)
+    await page.locator('.archive__keyword').fill(tail)
+    await page.getByRole('button', { name: '查询', exact: true }).click()
+    const r2 = await apiGet(page, `/archive/persons?keyword=${tail}&size=12`)
+    await expectTotal(r2.total, `卡号"${tail}"`)
+    await page.getByRole('button', { name: '重置', exact: true }).click()
+    await expectTotal(first.total, '重置')
+  }
+  await page.getByRole('button', { name: '健康数据汇总' }).click()
+  if (await page.locator('.el-message', { hasText: '建设中' }).waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+    pass(`${label}："健康数据汇总"提示建设中（阶段 6）`)
+  } else fail(`${label}："健康数据汇总"没有反应`)
+
+  if (first.list[0]) {
+    await page.locator('.person-card__open').first().click()
+    await page.waitForURL(/#\/archive\/[0-9A-Za-z]{17}/, { timeout: 5000 }).catch(() => null)
+    if (new URL(page.url()).hash === `#/archive/${first.list[0].cardCode}`) pass(`${label}：点"健康档案"进入个人档案`)
+    else fail(`${label}：点"健康档案"没有进入个人档案，当前 ${page.url()}`)
+  }
+}
+
+/** 进程里的 WebGL 上下文：创建了几个、丢掉（释放）了几个。在每个页面最先执行 */
+function countWebGl() {
+  const seen = new WeakSet()
+  window.__gl = { created: 0, lost: 0 }
+  const original = HTMLCanvasElement.prototype.getContext
+  HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+    const ctx = original.call(this, type, ...rest)
+    if (ctx && /webgl/.test(String(type)) && !seen.has(ctx)) {
+      seen.add(ctx)
+      window.__gl.created++
+      this.addEventListener('webglcontextlost', () => window.__gl.lost++, { once: true })
+    }
+    return ctx
+  }
+}
+
+/** 个人档案：3D 人体、当前体征、四个图表面板（有图或"暂无数据"）、查看详情、录入年龄框（只打开不保存）、预警记录；
+ *  最后反复进出个人档案，看 WebGL 上下文、JS 堆、DOM 节点和事件监听有没有越来越多。
+ *  注意：这里等元素一律用 locator().waitFor()，不用 waitForSelector——后者返回的元素句柄会让浏览器留着整页，测出假的泄漏 */
+async function personInteract(page, label) {
+  const ready = await page.locator('.body-3d[data-state="ready"]').first().waitFor({ timeout: 20000 }).then(() => true, () => false)
+  if (ready) pass(`${label}：3D 人体加载完成`)
+  else fail(`${label}：3D 人体没有加载出来（${await page.locator('.body-3d').getAttribute('data-state').catch(() => '无')}）`)
+  if (await threeLoaded(page)) pass(`${label}：进入个人档案才下载 three.js 和人体模型`)
+  else fail(`${label}：没有看到 three.js 的下载记录`)
+
+  const card = new URL(page.url()).hash.split('/').pop()
+  const d = await apiGet(page, `/archive/persons/${card}`)
+  const age = (await page.locator('[data-testid="age"]').textContent())?.trim()
+  if (age === (d.age === null ? '未录入' : String(d.age))) pass(`${label}：年龄显示"${age}"`)
+  else fail(`${label}：年龄显示"${age}"，接口 ${d.age}`)
+  const cells = await page.locator('.vitals__cell').count()
+  if (cells === 6) pass(`${label}：当前体征 6 格`)
+  else fail(`${label}：当前体征 ${cells} 格`)
+  for (const key of ['HEART_RATE', 'SPO2', 'TEMPERATURE', 'BLOOD_PRESSURE']) {
+    const text = await page.locator(`.vitals__cell[data-key="${key}"]`).textContent()
+    const want = d.vitals[key] === null ? '暂无数据' : '采集'
+    if (text?.includes(want)) continue
+    fail(`${label}：${key} 格子应含"${want}"：${text}`)
+  }
+
+  await page.waitForTimeout(800)
+  const panels = page.locator('.chart-panel')
+  const n = await panels.count()
+  const states = []
+  for (let i = 0; i < n; i++) {
+    const p = panels.nth(i)
+    const title = (await p.locator('.panel__title').textContent())?.trim()
+    const charts = await p.locator('[_echarts_instance_]').count()
+    const empty = await p.getByText('暂无数据').count()
+    states.push(`${title}=${charts ? '图表' : empty ? '暂无数据' : '？'}`)
+    if (!charts && !empty) fail(`${label}：${title} 既没有图表也没有"暂无数据"`)
+  }
+  if (n === 4) pass(`${label}：4 个图表面板（${states.join('，')}）`)
+  else fail(`${label}：图表面板 ${n} 个`)
+
+  await page.locator('.chart-panel', { hasText: '今日心率' }).getByRole('button', { name: '查看详情' }).click()
+  const zoom = page.locator('.screen-modal__box', { hasText: '查看详情 · 心率' })
+  if (await zoom.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：心率"查看详情"弹出放大图`)
+  else fail(`${label}：心率"查看详情"没有弹出`)
+  for (const m of ['血压', '步数']) {
+    await page.locator('.zoom__tab', { hasText: m }).click()
+    const ok = await page.locator('.screen-modal__box', { hasText: `查看详情 · ${m}` }).waitFor({ timeout: 3000 })
+      .then(() => page.waitForFunction(() => !document.querySelector('.zoom__msg'), null, { timeout: 5000 }))
+      .then(() => true, () => false)
+    if (ok) pass(`${label}：放大图换成${m}`)
+    else fail(`${label}：放大图没有换成${m}`)
+  }
+  await page.keyboard.press('Escape')
+
+  await page.locator('.info__edit').click()
+  const ageBox = page.locator('.screen-modal__box', { hasText: '录入年龄' })
+  if (await ageBox.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：打开"录入年龄"框（不保存）`)
+  else fail(`${label}：没有打开"录入年龄"框`)
+  await ageBox.getByRole('button', { name: '取消' }).click()
+
+  await page.getByRole('tab', { name: '预警记录' }).click()
+  const records = await page.locator('.records').waitFor({ timeout: 5000 }).then(() => true, () => false)
+  const alerts = await apiGet(page, `/archive/persons/${card}/alerts?page=1&size=10`)
+  const rows = await page.locator('.records .dark-table__row').count()
+  if (records && rows === alerts.list.length) pass(`${label}：预警记录 ${rows} 行（共 ${alerts.total} 条）`)
+  else fail(`${label}：预警记录 ${rows} 行，接口第 1 页 ${alerts.list.length} 条`)
+  await page.getByRole('tab', { name: '数据汇总' }).click()
+
+  // ---- 反复进出个人档案：3D 人体要释放干净 ----
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Performance.enable')
+  const measure = async () => {
+    await cdp.send('HeapProfiler.collectGarbage')
+    const { metrics } = await cdp.send('Performance.getMetrics')
+    const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]))
+    const gl = await page.evaluate(() => window.__gl)
+    return { heapMb: m.JSHeapUsedSize / 1048576, nodes: m.Nodes, listeners: m.JSEventListeners, gl,
+      canvases: await page.locator('.body-3d canvas').count() }
+  }
+  const samples = []
+  for (let round = 1; round <= BODY_ROUNDS; round++) {
+    await page.locator('.nav-item', { hasText: '健康档案' }).click()
+    await page.locator('.person-card').first().waitFor({ timeout: 5000 })
+    await page.waitForTimeout(300)
+    samples.push(await measure())
+    await page.locator('.person-card__open').first().click()
+    await page.locator('.body-3d[data-state="ready"]').first().waitFor({ timeout: 20000 })
+    await page.waitForTimeout(500)
+  }
+  await page.locator('.nav-item', { hasText: '健康档案' }).click()
+  await page.locator('.person-card').first().waitFor({ timeout: 5000 })
+  await page.waitForTimeout(300)
+  samples.push(await measure())
+  const last = samples.at(-1)
+  const base = samples[1] ?? samples[0]
+  console.log(`    进出 ${BODY_ROUNDS} 次，每次回到列表时：` + samples.map((s, i) =>
+    `\n      第 ${i + 1} 次 堆 ${s.heapMb.toFixed(1)} MB、DOM 节点 ${s.nodes}、监听 ${s.listeners}、WebGL 创建 ${s.gl.created} 释放 ${s.gl.lost}、画布 ${s.canvases}`).join(''))
+  const live = last.gl.created - last.gl.lost
+  if (live === 0 && last.gl.created >= BODY_ROUNDS && last.canvases === 0) {
+    pass(`${label}：进出 ${BODY_ROUNDS + 1} 次共创建 ${last.gl.created} 个 WebGL 上下文，离开后全部释放，没有残留画布`)
+  } else fail(`${label}：离开后还剩 ${live} 个 WebGL 上下文、${last.canvases} 个画布`)
+  const growth = last.heapMb - base.heapMb
+  if (growth < 5) pass(`${label}：JS 堆从第 2 次的 ${base.heapMb.toFixed(1)} MB 到最后 ${last.heapMb.toFixed(1)} MB（增长 < 5 MB）`)
+  else fail(`${label}：JS 堆一直在涨：${base.heapMb.toFixed(1)} → ${last.heapMb.toFixed(1)} MB`)
+  if (last.nodes - base.nodes < 500 && last.listeners - base.listeners < 50) {
+    pass(`${label}：DOM 节点 ${base.nodes} → ${last.nodes}、事件监听 ${base.listeners} → ${last.listeners}，没有越积越多`)
+  } else fail(`${label}：DOM 节点 ${base.nodes} → ${last.nodes}、事件监听 ${base.listeners} → ${last.listeners}`)
+  await cdp.detach()
+}
+
 async function main() {
   mkdirSync(SHOT_DIR, { recursive: true })
   const browser = await launch()
@@ -255,6 +490,7 @@ async function main() {
     // 3. 在登录页输入账号密码登录，进入首页
     console.log('界面登录')
     const ctx = await browser.newContext({ viewport: VIEWPORTS[0], acceptDownloads: true })
+    await ctx.addInitScript(countWebGl)
     {
       const page = await ctx.newPage()
       const report = watch(page, '界面登录')
@@ -267,12 +503,19 @@ async function main() {
       ])
       if (new URL(page.url()).hash.startsWith('#/portal')) pass(`用 ${USER} 登录后进入 #/portal`)
       else fail(`登录后没有进入首页，当前 ${page.url()}，提示：${await page.locator('.login-error').textContent().catch(() => '无')}`)
+      firstCard = (await apiGet(page, '/archive/persons?page=1&size=1'))?.list?.[0]?.cardCode ?? null
       report()
       await page.close()
     }
 
     // 4. 逐页打开（带登录状态），两种分辨率
     for (const p of PAGES.filter((x) => DEV_PAGES || !x.dev)) {
+      const hashOf = typeof p.hash === 'function' ? p.hash() : p.hash
+      if (!hashOf) {
+        console.log(`页面 ${p.name}：跳过（健康档案里没有人，没有可打开的个人档案）`)
+        continue
+      }
+      p.hash = hashOf
       console.log(`页面 ${p.hash}`)
       for (const vp of VIEWPORTS) {
         const page = await ctx.newPage()
@@ -286,6 +529,8 @@ async function main() {
         const el = await page.waitForSelector(p.selector, { timeout: 5000 }).catch(() => null)
         if (!el) fail(`${label}：找不到 ${p.selector}`)
         else if (p.text && !(await el.textContent())?.includes(p.text)) fail(`${label}：${p.selector} 里没有"${p.text}"`)
+        // 元素句柄会让浏览器一直留着这个元素（连同整页），后面测内存前要放掉
+        await el?.dispose()
         await checkLayout(page, label, vp)
         if (p.charts !== undefined) {
           // 图表初始化在数据回来之后，稍等一下再数

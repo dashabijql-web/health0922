@@ -102,6 +102,58 @@ class PositioningInboxTest extends PositioningDbTestBase {
                 .isEqualTo(1);
     }
 
+    /** docs/00 第 21 项：卡编码就代表人；同一卡编码换了姓名时清空人工录入的年龄，记警告提示人工核对。 */
+    @Test
+    void sameCardWithNewNameClearsAgeAndWarns() {
+        drop(fileName("RYXX", "20260920080000"), file(FakeFiles.ryxxHeader("2026-09-20 08:00:00"), List.of(
+                FakeFiles.ryxx(1, "测试甲", "采煤工", "综采一队"),
+                FakeFiles.ryxx(2, "测试乙", "电工", "机电队"),
+                FakeFiles.ryxx(3, "测试丙", "电工", "机电队"))));
+        inbox.scanOnce();
+        jdbc.update("UPDATE POS_PERSON SET AGE = 45, AGE_UPDATED_BY = 'admin', AGE_UPDATED_AT = ? WHERE CARD_CODE IN (?, ?)",
+                java.sql.Timestamp.valueOf(NOW), card(1), card(2));
+        long logStart = jdbc.queryForObject("SELECT NVL(MAX(ID), 0) FROM SYS_OPERATION_LOG", Long.class);
+
+        // 更新的一份：卡 1 换了人（有年龄），卡 3 换了人（没录年龄），卡 2 没变
+        String newer = fileName("RYXX", "20260922080000");
+        drop(newer, file(FakeFiles.ryxxHeader("2026-09-22 08:00:00"), List.of(
+                FakeFiles.ryxx(2, "测试乙", "电工", "机电队"),
+                FakeFiles.ryxx(1, "测试丁", "掘进工", "掘进二队"),
+                FakeFiles.ryxx(3, "测试戊", "电工", "机电队"))));
+        assertThat(inbox.scanOnce()).extracting(PositioningInbox.Outcome::status).as("警告不算出错")
+                .containsExactly("DONE");
+
+        var p1 = jdbc.queryForMap("SELECT * FROM POS_PERSON WHERE CARD_CODE = ?", card(1));
+        assertThat(p1.get("PERSON_NAME")).as("以最新文件为准").isEqualTo("测试丁");
+        assertThat(p1.get("DEPT")).isEqualTo("掘进二队");
+        assertThat(p1.get("AGE")).as("清空人工录入的年龄").isNull();
+        assertThat(p1.get("AGE_UPDATED_BY")).isNull();
+        assertThat(jdbc.queryForObject("SELECT AGE FROM POS_PERSON WHERE CARD_CODE = ?", Integer.class, card(2)))
+                .as("姓名没变，年龄不动").isEqualTo(45);
+        assertThat(jdbc.queryForList("""
+                SELECT e.LINE_NO || '|' || e.REASON FROM POS_INGEST_ERROR e JOIN POS_INGEST_FILE f ON f.ID = e.FILE_ID
+                 WHERE f.FILE_NAME = ? AND e.KIND = 'WARN' ORDER BY e.LINE_NO""", String.class, newer))
+                .containsExactly(
+                        "2|卡编码换了姓名（原：测试甲），已清空人工录入的年龄 45，请人工核对手表绑定和名单",
+                        "3|卡编码换了姓名（原：测试丙），请人工核对手表绑定和名单");
+        assertThat(jdbc.queryForList("""
+                SELECT ACTION || '|' || USERNAME || '|' || NVL(TO_CHAR(USER_ID), '-') || '|' || TARGET_TYPE || ':'
+                       || TARGET_ID || '|' || DBMS_LOB.SUBSTR(BEFORE_JSON, 200) || '|' || DBMS_LOB.SUBSTR(AFTER_JSON, 200)
+                  FROM SYS_OPERATION_LOG WHERE ID > ? ORDER BY ID""", String.class, logStart))
+                .as("清空年龄写操作日志，操作人是系统")
+                .containsExactly("PERSON_AGE_SET|SYSTEM|-|PERSON:" + card(1)
+                        + "|{\"age\":45}|{\"age\":null,\"reason\":\"定位文件里这个卡编码换了姓名\"}");
+
+        // 旧文件后到：不覆盖新姓名，也不算换名
+        jdbc.update("UPDATE POS_PERSON SET AGE = 50 WHERE CARD_CODE = ?", card(1));
+        drop(fileName("RYXX", "20260921080000"), file(FakeFiles.ryxxHeader("2026-09-21 08:00:00"), List.of(
+                FakeFiles.ryxx(1, "测试甲", "采煤工", "综采一队"))));
+        assertThat(inbox.scanOnce()).extracting(PositioningInbox.Outcome::status).containsExactly("STALE");
+        assertThat(jdbc.queryForMap("SELECT PERSON_NAME, AGE FROM POS_PERSON WHERE CARD_CODE = ?", card(1)).values())
+                .extracting(Object::toString).containsExactly("测试丁", "50");
+        assertThat(count("SELECT COUNT(*) FROM POS_INGEST_ERROR WHERE REASON LIKE '卡编码换了姓名%'")).isEqualTo(2);
+    }
+
     @Test
     void stationNameAndStatusComeFromDifferentFiles() {
         String t = "2026-09-23 10:13:19";

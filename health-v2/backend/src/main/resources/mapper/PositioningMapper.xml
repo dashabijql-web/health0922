@@ -79,6 +79,14 @@
                      #{row.isLeader}, #{row.isSpecial}, 1, #{src})
     </update>
 
+    <select id="peopleNow" resultType="com.xzkj.hv2.positioning.PositioningMapper$PersonNow">
+        SELECT CARD_CODE, PERSON_NAME, FROM_RYXX, SRC_DATA_TIME, AGE FROM POS_PERSON
+    </select>
+
+    <update id="clearAge">
+        UPDATE POS_PERSON SET AGE = NULL, AGE_UPDATED_BY = NULL, AGE_UPDATED_AT = NULL WHERE CARD_CODE = #{cardCode}
+    </update>
+
     <update id="insertPersonIfMissing">
         MERGE INTO POS_PERSON t
         USING DUAL ON (t.CARD_CODE = #{cardCode})

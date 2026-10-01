@@ -31,7 +31,7 @@ import DarkTable, { type Column } from '@/components/DarkTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ScreenModal from '@/components/ScreenModal.vue'
 import { cardNo, hhmmss } from '@/utils/format'
-import ListPager from './ListPager.vue'
+import ListPager from '@/components/ListPager.vue'
 import { usePagedList } from './use-paged-list'
 
 const props = defineProps<{ category: AlertCategory | null }>()

@@ -24,6 +24,19 @@ const routes: RouteRecordRaw[] = [
         name: 'dashboard',
         component: () => import('@/views/dashboard/DashboardView.vue'),
         meta: { title: '动态数据', nav: true }
+      },
+      {
+        path: 'archive',
+        name: 'archive',
+        component: () => import('@/views/archive/ArchiveListView.vue'),
+        meta: { title: '健康档案', nav: true }
+      },
+      {
+        // 卡编码 17 位字母数字；不合格的地址落到最后的兜底，回入口页
+        path: 'archive/:cardCode([0-9A-Za-z]{17})',
+        name: 'person-archive',
+        component: () => import('@/views/archive/PersonArchiveView.vue'),
+        meta: { title: '个人档案', nav: true }
       }
     ]
   }

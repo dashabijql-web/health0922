@@ -48,7 +48,7 @@ import { fetchStationLogs, type MarkSnapshot, type StationAction, type StationLo
 import type { Page } from '@/api/dashboard'
 import EmptyState from '@/components/EmptyState.vue'
 import ScreenIcon from '@/components/ScreenIcon.vue'
-import ListPager from '../components/ListPager.vue'
+import ListPager from '@/components/ListPager.vue'
 
 const props = defineProps<{ open: boolean; stationCode: string | null; stationName: string | null }>()
 const emit = defineEmits<{ close: [] }>()

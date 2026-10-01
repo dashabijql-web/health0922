@@ -36,6 +36,12 @@ public interface PositioningMapper {
 
     int mergePerson(@Param("row") PositioningRow.Person row, @Param("src") LocalDateTime src);
 
+    /** 人员表里现在每个人的姓名、来源、文件时间、年龄（RYXX 入库前比对姓名用）。 */
+    List<PersonNow> peopleNow();
+
+    /** 清空人工录入的年龄（卡编码换了姓名时，docs/00 第 21 项）。 */
+    int clearAge(@Param("cardCode") String cardCode);
+
     /** RYSS 里出现、人员表里还没有的人：补一行，只有卡编码和姓名。 */
     int insertPersonIfMissing(@Param("cardCode") String cardCode, @Param("personName") String personName,
                               @Param("src") LocalDateTime src);
@@ -64,4 +70,7 @@ public interface PositioningMapper {
     int countFailedSince(@Param("since") LocalDateTime since);
 
     int countInWell();
+
+    record PersonNow(String cardCode, String personName, int fromRyxx, LocalDateTime srcDataTime, Integer age) {
+    }
 }

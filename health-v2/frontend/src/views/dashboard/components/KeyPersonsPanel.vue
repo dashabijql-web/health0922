@@ -5,15 +5,17 @@
       <template #cell-name="{ row }">{{ row.name ?? '未录入' }}</template>
       <template #cell-card="{ row }"><span class="num" :title="row.cardCode">{{ cardNo(row.cardCode) }}</span></template>
       <template #cell-dept="{ row }"><span :title="row.dept ?? ''">{{ row.dept ?? '未录入' }}</span></template>
-      <template #cell-detail><button type="button" class="key-persons__link" @click="openArchive">详情</button></template>
+      <template #cell-detail="{ row }">
+        <button type="button" class="key-persons__link" @click="openArchive(row.cardCode)">详情</button>
+      </template>
       <template #empty>暂无重点人员</template>
     </DarkTable>
   </Panel>
 </template>
 
 <script setup lang="ts">
-// 右中：重点监护名单（docs/05 第四节"重点人员"）。"详情"跳个人档案，个人档案在阶段 5 做。
-import { ElMessage } from 'element-plus'
+// 右中：重点监护名单（docs/05 第四节"重点人员"）。"详情"跳个人档案。
+import { useRouter } from 'vue-router'
 import type { KeyPerson } from '@/api/dashboard'
 import DarkTable, { type Column } from '@/components/DarkTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -29,8 +31,10 @@ const COLUMNS: Column[] = [
   { key: 'detail', title: '详情', width: '0.8fr' }
 ]
 
-function openArchive() {
-  ElMessage.info('建设中')
+const router = useRouter()
+
+function openArchive(cardCode: string) {
+  void router.push(`/archive/${cardCode}`)
 }
 </script>
 
