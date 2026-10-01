@@ -162,7 +162,8 @@ public class DashboardService {
         int total = mapper.countInWellPersons(kw);
         List<InWellPerson> list = total == 0 ? List.of()
                 : mapper.inWellPersons(kw, onlineSince(LocalDateTime.now(clock)), (page - 1) * size, size).stream()
-                .map(r -> new InWellPerson(r.cardCode(), r.personName(), r.dept(), r.areaName(), r.watchState()))
+                .map(r -> new InWellPerson(r.cardCode(), r.personName(), r.dept(), r.areaName(), r.watchState(),
+                        r.stationPlaced() == 1))
                 .toList();
         return new PageResult<>(total, page, size, list);
     }

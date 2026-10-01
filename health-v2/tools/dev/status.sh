@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 查看本项目后端、前端和依赖（Oracle、Redis）的状态。
+# 查看本项目后端、前端和依赖（Oracle、Redis、GeoServer）的状态。
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 
 line() { printf '%-10s %-6s %s\n' "$1" "$2" "$3"; }
@@ -27,3 +27,6 @@ fi
 if [[ -n "$(port_pids 1521)" ]]; then line oracle "监听" "1521"; else line oracle "未监听" "1521"; fi
 # Redis 是 Docker 容器 hv2-redis（本机没有装 redis-cli），在容器里执行 ping
 if docker exec hv2-redis redis-cli ping >/dev/null 2>&1; then line redis "正常" "${REDIS_PORT:-6380} PONG（容器 hv2-redis）"; else line redis "异常" "${REDIS_PORT:-6380}（容器 hv2-redis 没有运行？docker start hv2-redis）"; fi
+# 底图服务是 Docker 容器 hv2-geoserver（docs/06 第三节），只对本机开放 8082
+geoserver_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 'http://127.0.0.1:8082/geoserver/hv2/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities' 2>/dev/null || true)"
+if [[ "$geoserver_code" == 200 ]]; then line geoserver "正常" "8082 WMS 可用（容器 hv2-geoserver）"; else line geoserver "异常" "8082 → HTTP ${geoserver_code:-无响应}（容器没启动或还没运行 tools/map-prep/publish.sh？）"; fi

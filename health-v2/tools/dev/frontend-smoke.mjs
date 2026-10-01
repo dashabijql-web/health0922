@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 前端冒烟脚本：用无头浏览器逐页打开，检查路由是否到达、控制台报错、HTTP 错误、是否出现滚动条，并截图。
-// 需要前端（9529）和后端（8081）已启动：tools/dev/start.sh
+// 需要前端（9529）和后端（8081）已启动：tools/dev/start.sh；地图模式还要 GeoServer（8082，tools/dev/docker-compose.yml）
 //
 // 用法：node tools/dev/frontend-smoke.mjs [--expect-hint=true|false] [--no-dev-pages]
 //   --expect-hint   登录页是否应显示默认账号提示（和后端 LOGIN_SHOW_DEFAULT_ACCOUNT 一致），默认 true
@@ -44,7 +44,8 @@ const PAGES = [
   { name: 'portal', hash: '#/portal', selector: '.ring-counter', text: '重点监护人员', charts: 0, interact: portalInteract },
   { name: 'dashboard', hash: '#/dashboard', selector: '.stage__total-label', text: '累计采集数据', charts: 1,
     interact: dashboardInteract },
-  { name: 'dashboard-map', hash: '#/dashboard?mode=map', selector: '.map-stage', text: '地图模式', charts: 1 },
+  { name: 'dashboard-map', hash: '#/dashboard?mode=map', selector: '.map-stage', text: '地图模式', charts: 1,
+    interact: mapInteract },
   { name: 'dev-components', hash: '#/dev/components', selector: '.preview', dev: true }
 ]
 
@@ -161,6 +162,57 @@ async function dashboardInteract(page, label) {
   await page.waitForSelector('.map-stage', { timeout: 3000 }).catch(() => null)
   if (new URL(page.url()).hash.includes('mode=map')) pass(`${label}：切换到地图模式`)
   else fail(`${label}：没有切换到地图模式`)
+}
+
+/** 地图模式：底图出来了、名单过滤、搜索、摆放模式和操作记录（只看不改，不保存任何摆放） */
+async function mapInteract(page, label) {
+  // 底图请求在页面打开时就发出去了，从浏览器的资源记录里找（含 HTTP 状态码）
+  await page.waitForLoadState('networkidle')
+  const wms = await page.evaluate(() => performance.getEntriesByType('resource')
+    .filter((e) => e.name.includes('/geoserver/hv2/wms'))
+    .map((e) => ({ url: e.name, status: e.responseStatus })))
+  const failed = await page.locator('.map-stage__notice', { hasText: '底图加载失败' }).count()
+  if (wms.length > 0 && wms.every((w) => w.status === 200) && failed === 0) pass(`${label}：底图加载成功（${wms.length} 次 WMS 请求）`)
+  else fail(`${label}：底图没有加载出来 ${JSON.stringify(wms)}`)
+  if (wms.length > 0 && wms.every((w) => new URL(w.url).searchParams.get('VERSION') === '1.1.1')) pass(`${label}：底图请求都用 WMS 1.1.1`)
+  else fail(`${label}：底图请求不是 WMS 1.1.1：${wms.map((w) => w.url).join(' ')}`)
+
+  await page.getByRole('button', { name: '重点监护' }).click()
+  const note = page.locator('.map-stage__filter-note', { hasText: '重点监护' })
+  if (await note.waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：点"重点监护"只显示名单里的人`)
+  else fail(`${label}：点"重点监护"没有反应`)
+  await page.getByRole('button', { name: '重点监护' }).click()
+  if (await note.waitFor({ state: 'detached', timeout: 3000 }).then(() => true, () => false)) pass(`${label}：再点一次取消过滤`)
+  else fail(`${label}：再点"重点监护"没有取消过滤`)
+
+  await page.locator('.map-stage__search-input').fill('冒烟测试不存在的人')
+  await page.locator('.map-stage__search-input').press('Enter')
+  if (await page.locator('.el-message', { hasText: '井下没有找到' }).waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+    pass(`${label}：搜不到的人提示"井下没有找到"`)
+  } else fail(`${label}：搜索没有提示`)
+
+  const tower = page.locator('.map-stage__tower')
+  const shown = await tower.getAttribute('aria-pressed')
+  await tower.click()
+  if ((await tower.getAttribute('aria-pressed')) !== shown) pass(`${label}：左下角按钮切换基站显示`)
+  else fail(`${label}：左下角按钮没有切换基站显示`)
+  await tower.click()
+
+  await page.getByRole('button', { name: '摆放基站' }).click()
+  const hint = page.locator('.place__hint')
+  if (await hint.filter({ hasText: /个基站/ }).waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+    pass(`${label}：摆放模式：${(await hint.textContent()).trim()}`)
+  } else fail(`${label}：没有进入摆放模式`)
+  await page.locator('.place__link').click()
+  if (await page.locator('.logs').waitFor({ timeout: 3000 }).then(() => true, () => false)) pass(`${label}：打开操作记录抽屉`)
+  else fail(`${label}：操作记录抽屉没有打开`)
+  await page.locator('.logs__close').click()
+  await page.getByRole('button', { name: '退出摆放' }).click()
+
+  await page.getByRole('button', { name: '地图模式', exact: true }).click()
+  await page.waitForSelector('.stage__total-label', { timeout: 3000 }).catch(() => null)
+  if (!new URL(page.url()).hash.includes('mode=map')) pass(`${label}：切回展示模式`)
+  else fail(`${label}：没有切回展示模式`)
 }
 
 async function main() {

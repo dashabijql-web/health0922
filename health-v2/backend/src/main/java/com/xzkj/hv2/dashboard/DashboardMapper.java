@@ -98,7 +98,8 @@ public interface DashboardMapper {
     record HeadcountRow(int inWell, int expected, int onlineCount, int onlineAlert) {
     }
 
-    record InWellPersonRow(String cardCode, String personName, String dept, String areaName, String watchState) {
+    record InWellPersonRow(String cardCode, String personName, String dept, String areaName, String watchState,
+                           int stationPlaced) {
     }
 
     record StepRankRow(String cardCode, String personName, String dept, long steps) {

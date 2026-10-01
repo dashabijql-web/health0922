@@ -14,7 +14,7 @@
         @monthly="page.openMonthly"
         @toggle-mode="page.toggleMode"
       />
-      <MapStage v-else @toggle-mode="page.toggleMode" />
+      <MapStage v-else :locate="page.locate.value" @toggle-mode="page.toggleMode" />
     </section>
 
     <AlertTilesPanel
@@ -47,6 +47,7 @@
       :persons="page.persons"
       :page="page.personPage.value"
       :page-size="PERSON_PAGE_SIZE"
+      :map-mode="page.mode.value === 'map'"
       @page="page.goPersonPage"
       @export="page.exportOpen.value = true"
       @locate="page.locatePerson"
@@ -74,6 +75,7 @@
 
 <script setup lang="ts">
 // 动态数据页（docs/05 第四节）。布局按截图 1 换算到 1920×1080 画布（docs/09 第三节），坐标写在下面的样式里。
+import { defineAsyncComponent } from 'vue'
 import NoticeBanner from '@/components/NoticeBanner.vue'
 import WearExportDialog from '@/components/WearExportDialog.vue'
 import AlertPersonsDialog from './components/AlertPersonsDialog.vue'
@@ -82,10 +84,12 @@ import DeviceEventsDialog from './components/DeviceEventsDialog.vue'
 import DisplayStage from './components/DisplayStage.vue'
 import HeadcountCurvePanel from './components/HeadcountCurvePanel.vue'
 import KeyPersonsPanel from './components/KeyPersonsPanel.vue'
-import MapStage from './components/MapStage.vue'
 import PeopleInfoPanel from './components/PeopleInfoPanel.vue'
 import StepsRankPanel from './components/StepsRankPanel.vue'
 import { PERSON_PAGE_SIZE, useDashboardPage } from './use-dashboard-page'
+
+// 地图模式用到 OpenLayers、proj4，体积大，切到地图模式时才加载
+const MapStage = defineAsyncComponent(() => import('./components/MapStage.vue'))
 
 const page = useDashboardPage()
 </script>

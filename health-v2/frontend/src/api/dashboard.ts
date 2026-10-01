@@ -102,6 +102,8 @@ export interface InWellPerson {
   dept: string | null
   areaName: string | null
   watchState: WatchState
+  /** 所在基站在地图上摆放了没有（地图模式下没摆放的标"基站未摆放"） */
+  stationPlaced: boolean
 }
 
 export interface StepRank {

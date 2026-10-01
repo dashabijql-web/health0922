@@ -324,6 +324,15 @@ class DashboardServiceTest extends DashboardDbTestBase {
         assertThat(first.areaName()).isEqualTo("一号区域");
         assertThat(first.dept()).isEqualTo("综采队");
         assertThat(all.list().get(5).dept()).isNull();
+        assertThat(all.list()).extracting(InWellPerson::stationPlaced).containsOnly(false);
+
+        // 1 号所在的基站摆放好了：地图模式下他不再标"基站未摆放"
+        String station = "6208230092030001000012";
+        jdbc.update("UPDATE POS_PERSON_STATE SET STATION_CODE = ? WHERE CARD_CODE = ?", station, card(1));
+        jdbc.update("INSERT INTO POS_STATION_MARK (STATION_CODE, X, Y, PLACED_BY) VALUES (?, 39482000, 3852000, 'admin')",
+                station);
+        assertThat(service.inWellPersons(null, 1, 20).list()).extracting(InWellPerson::stationPlaced)
+                .containsExactly(true, false, false, false, false, false);
 
         assertThat(service.inWellPersons("测试3", 1, 20).list()).extracting(InWellPerson::cardCode)
                 .containsExactly(card(3));

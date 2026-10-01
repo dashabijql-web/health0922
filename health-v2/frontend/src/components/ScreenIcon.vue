@@ -74,6 +74,30 @@
       <circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" />
       <path d="M12 7.5v6M12 16.5v.3" stroke="var(--bg-page)" stroke-width="2.4" />
     </template>
+    <!-- 五角星（今日关注） -->
+    <template v-else-if="name === 'star'">
+      <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="currentColor" />
+    </template>
+    <!-- 信号塔（基站） -->
+    <template v-else-if="name === 'tower'">
+      <path d="M12 9v12M8 21l4-12 4 12M9.3 17h5.4" />
+      <path d="M8.5 5.5a5 5 0 0 0 0 7M15.5 5.5a5 5 0 0 1 0 7M6 3.5a8.5 8.5 0 0 0 0 11M18 3.5a8.5 8.5 0 0 1 0 11" />
+      <circle cx="12" cy="9" r="1.3" fill="currentColor" />
+    </template>
+    <!-- 刷新 -->
+    <template v-else-if="name === 'refresh'">
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4.5H15" />
+    </template>
+    <!-- 定位针（摆放基站） -->
+    <template v-else-if="name === 'pin'">
+      <path d="M12 21s-6-5.6-6-10.5a6 6 0 0 1 12 0C18 15.4 12 21 12 21z" />
+      <circle cx="12" cy="10.5" r="2.2" />
+    </template>
+    <!-- 记录 -->
+    <template v-else-if="name === 'log'">
+      <path d="M6 3.5h9l3 3v14H6z" />
+      <path d="M9 10h6M9 13.5h6M9 17h4" />
+    </template>
     <!-- 设备事件（电池） -->
     <template v-else-if="name === 'battery'">
       <rect x="3" y="7.5" width="16" height="9" rx="1.5" />

@@ -22,7 +22,7 @@ abstract class DashboardDbTestBase extends WatchDbTestBase {
     private static final AtomicLong IDS = new AtomicLong(1);
 
     private static final List<String> CLEAR = List.of("POS_INGEST_ERROR", "POS_INGEST_FILE", "POS_PERSON_STATE",
-            "POS_AREA", "POS_PRESENCE_DAILY", "POS_HEADCOUNT_SERIES", "WATCH_LIST");
+            "POS_AREA", "POS_PRESENCE_DAILY", "POS_HEADCOUNT_SERIES", "WATCH_LIST", "POS_STATION_MARK");
 
     @BeforeEach
     void clearDashboardTables() {

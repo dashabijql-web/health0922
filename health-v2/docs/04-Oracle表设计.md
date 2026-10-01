@@ -153,7 +153,7 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 | `DISPLAY_NAME` | VARCHAR2(200 CHAR) | 用户起的名字，可为空 |
 | `X` `Y` | NUMBER(15,3) | 地图坐标（EPSG:4527，见 `06`） |
 | `PLACED_BY` `PLACED_AT` `UPDATED_BY` `UPDATED_AT` | | 首次摆放、最后修改的人（登录名）和时间 |
-| `VERSION` | NUMBER 默认 0 | 乐观锁：两人同时改，后提交的收到冲突提示 |
+| `VERSION` | NUMBER 默认 0 | 乐观锁：两人同时改，后提交的收到冲突提示。摆放时写 1，之后每改一次加 1；未摆放的基站在接口里返回 0（`06` 第五节） |
 
 基站显示名称优先级：`DISPLAY_NAME` > `STATION_NAME` > "区域名称 + 编码后 6 位"。
 

@@ -22,13 +22,20 @@ export function useDashboardPage() {
   const route = useRoute()
   const router = useRouter()
 
-  // ---- 模式：展示模式（默认）/ 地图模式（?mode=map，阶段 4） ----
+  // ---- 模式：展示模式（默认）/ 地图模式（?mode=map） ----
   const mode = computed(() => (route.query.mode === 'map' ? 'map' : 'display'))
   function toggleMode() {
     void router.replace({ query: mode.value === 'map' ? {} : { mode: 'map' } })
   }
-  /** 点人员表的一行：切到地图模式并带上卡编码；在地图上定位要等阶段 4 */
+  /** 要在地图上定位的人：地址里的 ?card=；seq 每点一次加 1，同一个人再点一次也重新定位 */
+  const locateSeq = ref(0)
+  const locate = computed(() => ({
+    card: typeof route.query.card === 'string' ? route.query.card : null,
+    seq: locateSeq.value
+  }))
+  /** 点人员表的一行：切到地图模式并定位到这个人（docs/05 第四节） */
   function locatePerson(p: InWellPerson) {
+    locateSeq.value++
     void router.replace({ query: { mode: 'map', card: p.cardCode } })
   }
 
@@ -87,6 +94,7 @@ export function useDashboardPage() {
   return {
     mode,
     toggleMode,
+    locate,
     locatePerson,
     overview,
     headcount,

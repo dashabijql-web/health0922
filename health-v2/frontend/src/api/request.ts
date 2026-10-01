@@ -89,6 +89,14 @@ export function post<T>(url: string, data?: unknown, options: RequestOptions = {
   return send<T>({ ...options, method: 'POST', url, data })
 }
 
+export function put<T>(url: string, data?: unknown, options: RequestOptions = {}): Promise<T> {
+  return send<T>({ ...options, method: 'PUT', url, data })
+}
+
+export function del<T>(url: string, options: RequestOptions = {}): Promise<T> {
+  return send<T>({ ...options, method: 'DELETE', url })
+}
+
 export interface DownloadedFile {
   blob: Blob
   /** 后端 Content-Disposition 里的文件名（RFC 6266 的 filename* 优先） */

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  地图模式、基站摆放（docs/05 第五节、docs/06 第五节）。"现在""今天"由调用方按注入的 Clock 传进来。
+  手表在线、告警"仍在发生"的口径和大屏一样（DashboardMapper.xml 的 headcount、inWellPersons）。
+-->
+<mapper namespace="com.xzkj.hv2.map.MapMapper">
+
+    <!-- ================= 人员 ================= -->
+
+    <select id="inWellPersons" resultType="com.xzkj.hv2.map.MapMapper$PersonRow">
+        WITH a AS (SELECT DISTINCT CARD_CODE
+                     FROM ALERT_EVENT
+                    WHERE CARD_CODE IS NOT NULL AND CATEGORY &lt;&gt; 'OTHER'
+                      AND LAST_OCCURRED_AT &gt;= #{activeSince} AND OCCURRED_AT &gt;= #{activeDayStart})
+        SELECT w.CARD_CODE, p.PERSON_NAME, p.DEPT, ar.AREA_NAME, w.STATION_CODE,
+               st.STATION_NAME VENDOR_NAME, m.DISPLAY_NAME, sar.AREA_NAME STATION_AREA_NAME, m.X, m.Y,
+               w.SRC_DATA_TIME POS_TIME,
+               CASE WHEN d.IMEI IS NULL THEN 'UNBOUND'
+                    WHEN d.LAST_SEEN_AT &gt;= #{onlineSince} THEN 'ONLINE'
+                    ELSE 'OFFLINE' END WATCH_STATE,
+               CASE WHEN a.CARD_CODE IS NULL THEN 0 ELSE 1 END ALERTING
+          FROM V_POS_IN_WELL w
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = w.CARD_CODE
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = w.AREA_CODE
+          LEFT JOIN POS_STATION st ON st.STATION_CODE = w.STATION_CODE
+          LEFT JOIN POS_AREA sar ON sar.AREA_CODE = SUBSTR(w.STATION_CODE, 1, 16)
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = w.STATION_CODE
+          LEFT JOIN DEVICE d ON d.CARD_CODE = w.CARD_CODE AND d.STATUS = 1
+          LEFT JOIN a ON a.CARD_CODE = w.CARD_CODE
+        <where>
+            <if test="list != null">
+                EXISTS (SELECT 1 FROM WATCH_LIST l
+                         WHERE l.CARD_CODE = w.CARD_CODE AND l.LIST_TYPE = #{list}
+                           AND (l.LIST_TYPE = 'KEY' OR l.EXPIRE_DATE &gt;= #{today}))
+            </if>
+            <!-- 按普通文字"包含"查，% 和 _ 不是通配符 -->
+            <if test="keyword != null">
+                AND (INSTR(p.PERSON_NAME, #{keyword}) &gt; 0 OR INSTR(w.CARD_CODE, #{keyword}) &gt; 0)
+            </if>
+        </where>
+         ORDER BY p.PERSON_NAME, w.CARD_CODE
+    </select>
+
+    <!-- 人员、当前位置（只有在井下才有）、启用的手表 -->
+    <select id="card" resultType="com.xzkj.hv2.map.MapMapper$CardRow">
+        SELECT p.CARD_CODE, p.PERSON_NAME, p.DEPT,
+               CASE WHEN w.CARD_CODE IS NULL THEN 0 ELSE 1 END IN_WELL,
+               ar.AREA_NAME, w.STATION_CODE, st.STATION_NAME VENDOR_NAME, m.DISPLAY_NAME,
+               sar.AREA_NAME STATION_AREA_NAME, st.RUN_STATUS, m.X, m.Y,
+               w.SRC_DATA_TIME POS_TIME, w.STATION_ENTER_TIME,
+               d.IMEI, d.LAST_SEEN_AT, d.BATTERY_PCT, d.BATTERY_TIME
+          FROM POS_PERSON p
+          LEFT JOIN V_POS_IN_WELL w ON w.CARD_CODE = p.CARD_CODE
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = w.AREA_CODE
+          LEFT JOIN POS_STATION st ON st.STATION_CODE = w.STATION_CODE
+          LEFT JOIN POS_AREA sar ON sar.AREA_CODE = SUBSTR(w.STATION_CODE, 1, 16)
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = w.STATION_CODE
+          LEFT JOIN DEVICE d ON d.CARD_CODE = p.CARD_CODE AND d.STATUS = 1
+         WHERE p.CARD_CODE = #{cardCode}
+    </select>
+
+    <select id="latestVitals" resultType="com.xzkj.hv2.map.MapMapper$VitalRow">
+        SELECT METRIC, VAL1, VAL2, COLLECTED_AT FROM HEALTH_LATEST WHERE CARD_CODE = #{cardCode}
+    </select>
+
+    <!-- 最近几条六类告警（设备事件不算）；按 (CARD_CODE, OCCURRED_AT) 索引倒着取 -->
+    <select id="recentAlerts" resultType="com.xzkj.hv2.map.MapMapper$AlertRow">
+        SELECT SRC, CODE, CATEGORY, VAL_TEXT, OCCURRED_AT, LAST_OCCURRED_AT
+          FROM ALERT_EVENT
+         WHERE CARD_CODE = #{cardCode} AND CATEGORY &lt;&gt; 'OTHER'
+         ORDER BY OCCURRED_AT DESC, ID DESC
+         FETCH FIRST #{limit} ROWS ONLY
+    </select>
+
+    <!-- ================= 基站 ================= -->
+
+    <sql id="stationSelect">
+        SELECT st.STATION_CODE, st.STATION_NAME VENDOR_NAME, m.DISPLAY_NAME, st.AREA_CODE, ar.AREA_NAME,
+               st.RUN_STATUS, m.X, m.Y, m.VERSION, NVL(m.UPDATED_BY, m.PLACED_BY) UPDATED_BY,
+               NVL(m.UPDATED_AT, m.PLACED_AT) UPDATED_AT
+          FROM POS_STATION st
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = st.STATION_CODE
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = st.AREA_CODE
+    </sql>
+
+    <!-- 全部基站，按区域和名称排，让相邻的基站排在一起（docs/06 第五节）；已摆放/未摆放的筛选在 MapService 里做 -->
+    <select id="stations" resultType="com.xzkj.hv2.map.MapMapper$StationRow">
+        <include refid="stationSelect"/>
+         ORDER BY ar.AREA_NAME NULLS LAST, st.AREA_CODE, NVL(m.DISPLAY_NAME, st.STATION_NAME) NULLS LAST,
+                  st.STATION_CODE
+    </select>
+
+    <select id="station" resultType="com.xzkj.hv2.map.MapMapper$StationRow">
+        <include refid="stationSelect"/>
+         WHERE st.STATION_CODE = #{stationCode}
+    </select>
+
+    <select id="stationExists" resultType="boolean">
+        SELECT COUNT(*) FROM POS_STATION WHERE STATION_CODE = #{stationCode}
+    </select>
+
+    <select id="lockMark" resultType="com.xzkj.hv2.map.MapMapper$MarkRow">
+        SELECT STATION_CODE, DISPLAY_NAME, X, Y, VERSION
+          FROM POS_STATION_MARK
+         WHERE STATION_CODE = #{stationCode}
+           FOR UPDATE
+    </select>
+
+    <insert id="insertMark">
+        INSERT INTO POS_STATION_MARK (STATION_CODE, DISPLAY_NAME, X, Y, PLACED_BY, PLACED_AT, VERSION)
+        VALUES (#{stationCode}, #{displayName}, #{x}, #{y}, #{username}, #{now}, 1)
+    </insert>
+
+    <update id="updateMark">
+        UPDATE POS_STATION_MARK
+           SET X = #{x}, Y = #{y}, DISPLAY_NAME = #{displayName}, UPDATED_BY = #{username}, UPDATED_AT = #{now},
+               VERSION = VERSION + 1
+         WHERE STATION_CODE = #{stationCode} AND VERSION = #{version}
+    </update>
+
+    <delete id="deleteMark">
+        DELETE FROM POS_STATION_MARK WHERE STATION_CODE = #{stationCode} AND VERSION = #{version}
+    </delete>
+
+    <select id="lastStationActor" resultType="string">
+        SELECT USERNAME
+          FROM SYS_OPERATION_LOG
+         WHERE TARGET_TYPE = 'STATION' AND TARGET_ID = #{stationCode}
+         ORDER BY ID DESC
+         FETCH FIRST 1 ROWS ONLY
+    </select>
+
+    <!-- ================= 操作日志 ================= -->
+
+    <sql id="logWhere">
+         WHERE l.TARGET_TYPE = 'STATION'
+        <if test="stationCode != null">AND l.TARGET_ID = #{stationCode}</if>
+    </sql>
+
+    <select id="countStationLogs" resultType="int">
+        SELECT COUNT(*) FROM SYS_OPERATION_LOG l
+        <include refid="logWhere"/>
+    </select>
+
+    <!-- 倒序（ID 越大越新）；带上基站现在的名称，方便看是哪个基站 -->
+    <select id="stationLogs" resultType="com.xzkj.hv2.map.MapMapper$LogRow">
+        SELECT l.ID, l.USERNAME, l.ACTION, l.TARGET_ID, st.STATION_NAME VENDOR_NAME, m.DISPLAY_NAME, ar.AREA_NAME,
+               l.BEFORE_JSON, l.AFTER_JSON, l.CREATED_AT
+          FROM SYS_OPERATION_LOG l
+          LEFT JOIN POS_STATION st ON st.STATION_CODE = l.TARGET_ID
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = l.TARGET_ID
+          LEFT JOIN POS_AREA ar ON ar.AREA_CODE = SUBSTR(l.TARGET_ID, 1, 16)
+        <include refid="logWhere"/>
+         ORDER BY l.ID DESC
+        OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+    </select>
+</mapper>

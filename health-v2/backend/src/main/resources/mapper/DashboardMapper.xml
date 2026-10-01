@@ -150,6 +150,7 @@
           LEFT JOIN POS_PERSON p ON p.CARD_CODE = w.CARD_CODE
           LEFT JOIN DEVICE d ON d.CARD_CODE = w.CARD_CODE AND d.STATUS = 1
           LEFT JOIN POS_AREA ar ON ar.AREA_CODE = w.AREA_CODE
+          LEFT JOIN POS_STATION_MARK m ON m.STATION_CODE = w.STATION_CODE
         <where>
             <if test="keyword != null">
                 INSTR(p.PERSON_NAME, #{keyword}) &gt; 0 OR INSTR(w.CARD_CODE, #{keyword}) &gt; 0
@@ -157,10 +158,11 @@
         </where>
     </sql>
 
-    <!-- 人员表：手表在线的排前面，其次离线、未绑定；同一状态按姓名 -->
+    <!-- 人员表：手表在线的排前面，其次离线、未绑定；同一状态按姓名。STATION_PLACED：所在基站摆放了没有（地图模式标"基站未摆放"） -->
     <select id="inWellPersons" resultType="com.xzkj.hv2.dashboard.DashboardMapper$InWellPersonRow">
-        SELECT CARD_CODE, PERSON_NAME, DEPT, AREA_NAME, WATCH_STATE
+        SELECT CARD_CODE, PERSON_NAME, DEPT, AREA_NAME, WATCH_STATE, STATION_PLACED
           FROM (SELECT w.CARD_CODE, p.PERSON_NAME, p.DEPT, ar.AREA_NAME,
+                       CASE WHEN m.STATION_CODE IS NULL THEN 0 ELSE 1 END STATION_PLACED,
                        CASE WHEN d.IMEI IS NULL THEN 'UNBOUND'
                             WHEN d.LAST_SEEN_AT &gt;= #{onlineSince} THEN 'ONLINE'
                             ELSE 'OFFLINE' END WATCH_STATE

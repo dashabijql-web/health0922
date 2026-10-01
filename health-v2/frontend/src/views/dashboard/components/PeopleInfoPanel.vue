@@ -53,7 +53,11 @@
           </template>
           <template #cell-card="{ row }"><span class="num" :title="row.cardCode">{{ cardNo(row.cardCode) }}</span></template>
           <template #cell-dept="{ row }"><span :title="row.dept ?? ''">{{ row.dept ?? '未录入' }}</span></template>
-          <template #cell-area="{ row }"><span :title="row.areaName ?? ''">{{ row.areaName ?? '暂无数据' }}</span></template>
+          <template #cell-area="{ row }">
+            <span :title="row.areaName ?? ''">{{ row.areaName ?? '暂无数据' }}</span>
+            <!-- 地图模式：所在基站没摆放的人地图上不画，这里标出来（docs/05 第五节） -->
+            <span v-if="mapMode && !row.stationPlaced" class="people__unplaced" title="所在基站还没有摆放位置，地图上不画">基站未摆放</span>
+          </template>
           <template #cell-watch="{ row }">
             <span v-if="row.watchState === 'UNBOUND'" class="watch-unbound">未绑定</span>
             <span v-else :class="['watch', `watch--${row.watchState.toLowerCase()}`]" :title="WATCH_TEXT[row.watchState]"
@@ -70,7 +74,7 @@
 
 <script setup lang="ts">
 // 底中：井下职工 / 应上线 / 未上线 / 已上线无告警 / 已上线-告警 + 井下人员表（docs/05 第四节"人员信息展示"）。
-// 点表里的一行切到地图模式（定位到人要等阶段 4）。标题栏的下载图标就是"佩戴情况导出"。
+// 点表里的一行切到地图模式并定位到这个人。标题栏的下载图标就是"佩戴情况导出"。
 import { computed } from 'vue'
 import type { Headcount, InWellPerson, Page, WatchState } from '@/api/dashboard'
 import CounterRoll from '@/components/CounterRoll.vue'
@@ -86,6 +90,8 @@ const props = defineProps<{
   persons: Resource<Page<InWellPerson>>
   page: number
   pageSize: number
+  /** 地图模式下标出"基站未摆放" */
+  mapMode?: boolean
 }>()
 const emit = defineEmits<{ page: [delta: number]; export: []; locate: [person: InWellPerson] }>()
 
@@ -120,6 +126,13 @@ const failedAt = computed(() => props.headcount.failedAt.value ?? props.persons.
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.people__unplaced {
+  display: block;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--warn);
 }
 
 .people__pager {

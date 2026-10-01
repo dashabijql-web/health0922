@@ -83,8 +83,12 @@ public final class DashboardViews {
                             Integer onlineAlert, PositioningFreshness positioning) {
     }
 
-    /** @param watchState ONLINE 在线 / OFFLINE 离线 / UNBOUND 没绑定手表 */
-    public record InWellPerson(String cardCode, String name, String dept, String areaName, String watchState) {
+    /**
+     * @param watchState    ONLINE 在线 / OFFLINE 离线 / UNBOUND 没绑定手表
+     * @param stationPlaced 所在基站在地图上摆放了没有（地图模式下没摆放的标"基站未摆放"，docs/05 第五节）
+     */
+    public record InWellPerson(String cardCode, String name, String dept, String areaName, String watchState,
+                               boolean stationPlaced) {
     }
 
     /** @param barPct 进度条长度：步数 ÷ 第一名的步数 × 100，第一名为 0 步时都是 0 */

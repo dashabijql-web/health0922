@@ -1,4 +1,4 @@
-# 本项目用的 Oracle 和 Redis（docs/01 配置表），在 Docker Desktop 里显示为一组"hv2"。
+# 本项目用的 Oracle、Redis 和 GeoServer（docs/01 配置表、docs/06），在 Docker Desktop 里显示为一组"hv2"。
 # 用法（在 health-v2/ 目录下）：
 #   docker compose --env-file .env.local -f tools/dev/docker-compose.yml up -d     # 第一次建容器，或改了本文件后重建
 #   docker compose --env-file .env.local -f tools/dev/docker-compose.yml start     # 启动（容器已存在时）
@@ -31,8 +31,32 @@ services:
     volumes:
       - hv2-redis-data:/data
 
+  # 矿图底图（docs/06 第三节）。镜像是官方镜像加中文字体，第一次用先建：
+  #   docker build --platform linux/amd64 -t hv2-geoserver:2.28.5 tools/dev/geoserver
+  # 官方镜像只有 Intel 版本，Mac 上转译运行，启动约 1 分钟。建好容器后运行 tools/map-prep/publish.sh 发布图层。
+  # 地图数据 runtime/map-prep/mine-map.gpkg 只读挂进去；工作区、图层、样式存在数据卷 hv2-geoserver-data 里，
+  # 丢了重跑 publish.sh 即可。管理员密码从 .env.local 的 GEOSERVER_ADMIN_PASSWORD 读。
+  geoserver:
+    image: hv2-geoserver:2.28.5
+    platform: linux/amd64
+    container_name: hv2-geoserver
+    restart: "no"
+    # 只对本机开放；浏览器经前端的 /geoserver 代理访问（frontend/vite.config.ts）
+    ports:
+      - "127.0.0.1:8082:8080"
+    environment:
+      GEOSERVER_ADMIN_USER: admin
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD:?在 .env.local 里设置 GEOSERVER_ADMIN_PASSWORD}
+      SKIP_DEMO_DATA: "true"
+      EXTRA_JAVA_OPTS: "-Xms256m -Xmx1g"
+    volumes:
+      - hv2-geoserver-data:/opt/geoserver_data
+      - ../../runtime/map-prep:/opt/hv2-map:ro
+
 volumes:
   oracle_data:
     external: true
   hv2-redis-data:
     external: true
+  hv2-geoserver-data:
+    name: hv2-geoserver-data

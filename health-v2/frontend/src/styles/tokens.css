@@ -72,6 +72,45 @@
   --portal-ring-inner: #035c47;
   --portal-label-bg: #2f454b;
 
+  /* ---- 阶段 4：地图模式（颜色取自截图 14、15，docs/09 第四节） ---- */
+  /* 地图底：深色带纹理的岩石 */
+  --map-bg-top: #142321;
+  --map-bg-mid: #0b1715;
+  --map-bg-bottom: #101c1a;
+  --map-rock-1: rgba(70, 92, 88, 0.35);
+  --map-rock-2: rgba(52, 70, 66, 0.4);
+  --map-rock-3: rgba(30, 44, 42, 0.5);
+  /* 地图上的搜索框、按钮、浮层 */
+  --map-control-bg: rgba(6, 40, 36, 0.85);
+  --map-control-border: rgba(25, 230, 176, 0.5);
+  --map-tower-bg: rgba(14, 92, 80, 0.85);
+  --map-tower-off-bg: rgba(40, 50, 48, 0.85);
+  --map-float-bg: rgba(4, 28, 25, 0.96);
+  --map-chip-bg: rgba(0, 0, 0, 0.45);
+  --map-notice-bg: rgba(255, 176, 32, 0.92);
+  --map-notice-text: #2b1d00;
+  --map-place-notice-bg: rgba(245, 220, 60, 0.92);
+  --map-place-notice-text: #2b2600;
+  --warn-border: rgba(255, 176, 32, 0.45);
+  --danger-border: rgba(255, 77, 79, 0.6);
+  --accent-hover: rgba(25, 230, 176, 0.06);
+  --select-bg: rgba(245, 220, 60, 0.12);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --inset-bg: rgba(0, 0, 0, 0.2);
+  --overlay-shadow: rgba(0, 0, 0, 0.5);
+  /* 体征卡（截图 15）：青绿色卡片、白色小字 */
+  --card-bg: rgba(26, 168, 137, 0.9);
+  --card-border: rgba(160, 255, 228, 0.55);
+  --card-footer: rgba(14, 140, 112, 0.95);
+  --card-divider: rgba(220, 255, 245, 0.45);
+  --card-muted: rgba(235, 255, 249, 0.8);
+  --card-stale: rgba(255, 255, 255, 0.55);
+  --card-hover: rgba(255, 255, 255, 0.14);
+  --card-inset: rgba(0, 60, 48, 0.35);
+  --card-warn-bg: rgba(255, 210, 120, 0.92);
+  --card-warn-text: #3a2600;
+  --card-action-hi: #ffe680;
+
   --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-number: 'Orbitron', 'Noto Sans SC', monospace;
 

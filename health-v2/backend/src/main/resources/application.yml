@@ -126,6 +126,18 @@ hv2:
   health:
     # HEALTH_DAILY_SUMMARY：每 5 分钟重算今天，0:10 定稿昨天
     summary-enabled: ${HEALTH_SUMMARY_ENABLED:true}
+  map:
+    # 底图（docs/06）。WMS 地址默认是站内路径，由前端开发服务器 / nginx 转给 GeoServer
+    wms-url: ${MAP_WMS_URL:/geoserver/hv2/wms}
+    line-layer: hv2:roadway_line
+    label-layer: hv2:roadway_label
+    projection: EPSG:4527
+    # 按选中的巷道线算出的范围（tools/map-prep/build.py 打印），基站只能摆在这里面
+    extent:
+      min-x: 39480087.9
+      min-y: 3851797.4
+      max-x: 39489391.2
+      max-y: 3854743.4
 
 logging:
   level:
