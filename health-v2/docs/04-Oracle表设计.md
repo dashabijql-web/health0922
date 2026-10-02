@@ -60,7 +60,7 @@
 | --- | --- | --- |
 | `ID` | 自增主键 | |
 | `USER_ID` `USERNAME` | | 谁（登录名冗余存一份，账号改名后日志仍可读）。系统自己做的改动（如定位文件里卡编码换了姓名时清空年龄，`02` 第四节）`USER_ID` 为空、`USERNAME` 写 `SYSTEM` |
-| `ACTION` | VARCHAR2(30 CHAR) | `STATION_PLACE` `STATION_MOVE` `STATION_RENAME` `STATION_DELETE` `PERSON_AGE_SET` `ALERT_RULE_SET` `JOB_GROUP_SET` `JOB_KIND_GROUP_SET` `WATCH_LIST_ADD` `WATCH_LIST_REMOVE` |
+| `ACTION` | VARCHAR2(30 CHAR) | `STATION_PLACE` `STATION_MOVE` `STATION_RENAME` `STATION_DELETE` `PERSON_AGE_SET` `ALERT_RULE_SET` `JOB_GROUP_SET` `JOB_KIND_GROUP_SET` `WATCH_LIST_ADD` `WATCH_LIST_REMOVE`；部署工具 `hv2-ops` 写的 `USER_PASSWORD_SET`（`TARGET_TYPE` 为 `USER`，只记哪个 Windows 账号用工具改的，不记密码）、`DEVICE_BIND`（`TARGET_TYPE` 为 `DEVICE` + IMEI，改动前后的卡编码），见 `11` |
 | `TARGET_TYPE` `TARGET_ID` | | 对象类型和编号：基站摆放是 `STATION` + 基站编码；年龄录入和名单加入/移除是 `PERSON` + 卡编码（按人能查到他的全部改动） |
 | `BEFORE_JSON` `AFTER_JSON` | CLOB | 改动前后（新增时前者为空，删除时后者为空） |
 | `CREATED_AT` | TIMESTAMP(0) | 何时 |
@@ -98,6 +98,8 @@ ORA-20001: 操作日志不允许修改或删除        ← 修改作废
 - 上线时，后端改用一个单独的应用账号：对 `SYS_OPERATION_LOG` 只有 `INSERT` 和 `SELECT` 权限，对其他表只有增删改查权限，没有建表、清空表的权限（`08` 阶段 7）。
 
 这样"不可改"对应用成立；对数据库管理员不成立，这是数据库本身的限制。
+
+阶段 7 已实现（`11` 第三节）：应用账号由数据库管理员执行 `tools/deploy/oracle/create-app-user.sql` 建，只有登录权限；表的权限由建表账号执行 `tools/deploy/oracle/grant-app.sql` 授予（每次迁移后再执行一次），这两个不是迁移脚本，不放进 `db/migration`。后端用 `ORACLE_SCHEMA=HEALTH_V2` 找到建表账号的表（`01` 配置表）。本机实测：应用账号改、删、清空操作日志，停用触发器，建表、删表、删分区都被拒绝；写入新月份时 Oracle 照样自动建分区。
 
 ## 四、定位表
 
@@ -377,7 +379,7 @@ V001__sys.sql
 | 阶段 1 | 多了 3 号 | 只执行 3 号 | 再多出定位的表 |
 | 阶段 2 | 多了 4、5 号 | 只执行 4、5 号 | 再多出手表、体征、预警的表（已执行） |
 
-到矿上部署时运行一次，它把 1 到 5 号按顺序全部执行，数据库就和开发时一样，不用人记先建哪张表。
+到矿上部署时运行一次，它把 1 到 5 号按顺序全部执行，数据库就和开发时一样，不用人记先建哪张表。上线服务器不装 Maven，用部署工具 `java -jar hv2-ops.jar migrate`（脚本打包在 jar 里，和这个目录是同一份；`11` 第三节）。
 
 | 脚本 | 内容 | 在哪个阶段执行 |
 | --- | --- | --- |

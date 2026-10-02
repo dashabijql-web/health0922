@@ -21,7 +21,7 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 10000
-      connection-init-sql: ALTER SESSION SET TIME_ZONE = 'Asia/Shanghai'
+      # 连接建好后先执行的语句（会话时区、默认 schema）在 common/config/OracleSessionConfig 里拼，这里不写
   task:
     scheduling:
       # 定时任务：定位扫描、缓冲写库（5 秒）、绑定和阈值刷新、日汇总；日汇总慢时不能挡住写库
@@ -67,6 +67,9 @@ sa-token:
   is-log: false
 
 hv2:
+  db:
+    # 表所在的账号。上线时后端用应用账号登录、表属于 HEALTH_V2，这里填 HEALTH_V2；留空用登录账号自己的表（docs/11）
+    schema: ${ORACLE_SCHEMA:}
   login:
     # 登录页是否显示默认账号提示；上线前改为 false（docs/08 阶段 7）
     show-default-account: ${LOGIN_SHOW_DEFAULT_ACCOUNT:true}

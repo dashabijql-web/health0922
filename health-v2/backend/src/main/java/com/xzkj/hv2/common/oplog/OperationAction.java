@@ -11,5 +11,9 @@ public enum OperationAction {
     JOB_GROUP_SET,
     JOB_KIND_GROUP_SET,
     WATCH_LIST_ADD,
-    WATCH_LIST_REMOVE
+    WATCH_LIST_REMOVE,
+    /** 部署工具 hv2-ops 改密码（tools/ops，docs/11），后端自己不写 */
+    USER_PASSWORD_SET,
+    /** 部署工具 hv2-ops 导入手表绑定清单（tools/ops，docs/11），后端自己不写 */
+    DEVICE_BIND
 }

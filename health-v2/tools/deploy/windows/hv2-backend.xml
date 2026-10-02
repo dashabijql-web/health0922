@@ -1,0 +1,74 @@
+<!--
+  health-v2 后端的 Windows 服务配置（WinSW，docs/11"后端"）。
+  用法：把 WinSW 的 exe 改名为 hv2-backend.exe，和本文件放在同一个目录（如 D:\hv2\backend\），
+  在管理员命令行里运行 hv2-backend.exe install，之后用 hv2-backend.exe start / stop / status。
+
+  这个文件部署时会填进数据库密码，填好后：
+    - 只允许 Administrators 和 SYSTEM 读（docs/11"目录权限"）；
+    - 不要拷回开发机、不要提交。仓库里的这份只是模板，密码一栏留空。
+  "按实际改"的地方都要按服务器改。
+-->
+<service>
+  <id>hv2-backend</id>
+  <name>hv2-backend</name>
+  <description>井下职工健康管理系统后端（health-v2，docs/11）</description>
+
+  <!-- 按实际改：Java 21 的路径 -->
+  <executable>C:\Program Files\Java\jdk-21\bin\java.exe</executable>
+  <arguments>-Xms512m -Xmx2g -jar "%BASE%\hv2-backend.jar"</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+
+  <!-- 开机自动启动，并稍等 Oracle、Redis 先起来 -->
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <!-- 按实际改：Oracle、Redis 的服务名（services.msc 里看），确保它们先启动；不在同一台机器上就删掉这两行 -->
+  <!-- <depend>OracleServiceORCL</depend> -->
+  <!-- <depend>Redis</depend> -->
+
+  <!-- 意外退出 10 秒后自动重启 -->
+  <onfailure action="restart" delay="10 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- 正常停止：WinSW 先发 Ctrl+C，后端先关 9001、把缓冲写完（最多约 30 秒，docs/03 第五节）。
+       这里给 60 秒，超时才强制结束 -->
+  <stoptimeout>60 sec</stoptimeout>
+
+  <!-- 控制台输出只留启动失败时的信息；正式日志由后端自己写到 LOGGING_FILE_NAME，按天滚动 -->
+  <logpath>%BASE%\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+
+  <!-- ===== 配置（docs/01 第五节配置表） ===== -->
+  <!-- HTTP 只监听本机，浏览器经 nginx 访问；/actuator 只能在本机看 -->
+  <env name="SERVER_ADDRESS" value="127.0.0.1"/>
+  <env name="SERVER_PORT" value="8081"/>
+
+  <!-- 按实际改：Oracle 连接。后端用应用账号登录，表在 HEALTH_V2 下 -->
+  <env name="ORACLE_HOST" value="127.0.0.1"/>
+  <env name="ORACLE_PORT" value="1521"/>
+  <env name="ORACLE_SERVICE" value="ORCLPDB1"/>
+  <env name="ORACLE_USER" value="HEALTH_V2_APP"/>
+  <env name="ORACLE_PASSWORD" value=""/>
+  <env name="ORACLE_SCHEMA" value="HEALTH_V2"/>
+
+  <env name="REDIS_HOST" value="127.0.0.1"/>
+  <env name="REDIS_PORT" value="6380"/>
+
+  <!-- 上线必须是 false（docs/08 阶段 7） -->
+  <env name="LOGIN_SHOW_DEFAULT_ACCOUNT" value="false"/>
+
+  <!-- 按实际改：定位文件目录（FileZilla Server 的落地目录就是收件箱） -->
+  <env name="POSITIONING_INBOX_DIR" value="D:\hv2\runtime\inbox"/>
+  <env name="POSITIONING_BACKUP_DIR" value="D:\hv2\runtime\backup"/>
+  <env name="POSITIONING_ERROR_DIR" value="D:\hv2\runtime\error"/>
+  <env name="POSITIONING_MINE_CODE" value="620823009203"/>
+
+  <env name="WATCH_TCP_PORT" value="9001"/>
+
+  <!-- 日志：按天、按 10 MB 滚动，保留 30 天、最多 2 GB。变量名里 MAXHISTORY、TOTALSIZECAP 中间不加下划线（本机验证过这种写法生效） -->
+  <env name="LOGGING_FILE_NAME" value="D:\hv2\logs\backend.log"/>
+  <env name="LOGGING_LOGBACK_ROLLINGPOLICY_MAXHISTORY" value="30"/>
+  <env name="LOGGING_LOGBACK_ROLLINGPOLICY_TOTALSIZECAP" value="2GB"/>
+</service>

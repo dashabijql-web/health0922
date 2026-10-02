@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 只借用 Spring Boot 的版本管理和打包插件（打成一个能 java -jar 运行的文件），不启动 Spring -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.xzkj</groupId>
+    <artifactId>hv2-ops</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>hv2-ops</name>
+    <description>health-v2 部署工具：建表迁移、改密码、导入手表绑定清单、发布底图（docs/11）</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- 和后端 backend/pom.xml 的 Flyway 版本保持一致 -->
+        <flyway.version>13.8.0</flyway.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-oracle</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc17</artifactId>
+        </dependency>
+        <!-- 和后端同一个 BCrypt 实现 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <!-- spring-security-crypto 记日志要用它；后端里由 Spring Boot 带进来，这里不启动 Spring，要自己加 -->
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>hv2-ops</finalName>
+        <resources>
+            <!-- 迁移脚本直接取后端的那一份，打进 jar，服务器上不需要源码和 Maven -->
+            <resource>
+                <directory>../../backend/src/main/resources/db/migration</directory>
+                <targetPath>db/migration</targetPath>
+            </resource>
+            <!-- 底图样式取 tools/map-prep/styles -->
+            <resource>
+                <directory>../map-prep/styles</directory>
+                <targetPath>map-styles</targetPath>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.xzkj.hv2ops.OpsMain</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
