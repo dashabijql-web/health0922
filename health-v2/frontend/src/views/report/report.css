@@ -1,0 +1,93 @@
+/* 月报各页共用的正文、表格、按钮样式（只在月报里用，类名都以 report- 开头）。颜色只用 tokens.css 的 --report-*。 */
+
+.report-text {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.report-text b {
+  color: var(--report-blue-deep);
+  font-weight: 700;
+}
+
+.report-note {
+  margin: 8px 0 0;
+  color: var(--report-text-dim);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.report-sub {
+  margin: 14px 0 6px;
+  padding-left: 8px;
+  border-left: 4px solid var(--report-blue-deep);
+  color: var(--report-blue-deep);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* 表格：表头浅灰底，行之间浅灰线（截图 7） */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13.5px;
+}
+
+.report-table th {
+  padding: 0 10px;
+  height: 34px;
+  background: var(--report-table-head);
+  font-weight: 700;
+  text-align: left;
+  color: var(--report-text);
+}
+
+.report-table td {
+  padding: 0 10px;
+  height: 26px;
+  border-bottom: 1px solid var(--report-table-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-table tr.report-table__total td {
+  font-weight: 700;
+  color: var(--report-blue-deep);
+}
+
+/* 不用全局的 .num（那是大屏的数字字体），纸质报告里数字和正文同一个字体 */
+.report-table .report-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-table .missing {
+  color: var(--report-text-dim);
+}
+
+.report-table .danger {
+  color: var(--report-danger);
+  font-weight: 700;
+}
+
+.report-chart {
+  width: 100%;
+}
+
+.report-btn {
+  padding: 4px 16px;
+  border: 1px solid var(--report-blue-deep);
+  border-radius: 4px;
+  background: var(--report-paper);
+  color: var(--report-blue-deep);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.report-btn:hover {
+  background: var(--report-box-bg);
+}

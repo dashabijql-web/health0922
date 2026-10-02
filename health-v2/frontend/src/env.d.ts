@@ -2,6 +2,11 @@
 
 import 'vue-router'
 
+declare global {
+  /** package.json 里的版本号（vite.config.ts 的 define） */
+  const __APP_VERSION__: string
+}
+
 declare module 'vue-router' {
   interface RouteMeta {
     public?: boolean

@@ -10,6 +10,7 @@
 //
 // 之后每个阶段新增页面时，往 PAGES 里加一行。
 // 所有交互只看不改：不保存年龄、不加入/移出名单、不保存基站摆放（这些都会写删不掉的操作日志）。
+// 月度汇总只读：翻页、切换月份、开关弹层（SMOKE_REPORT_ROUNDS 次，默认 6，看有没有越开越多的内存和绘制循环）。
 
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
@@ -59,6 +60,8 @@ const PAGES = [
 let firstCard = null
 /** 进出个人档案的轮数（3D 人体释放检查） */
 const BODY_ROUNDS = Number(process.env.SMOKE_BODY_ROUNDS ?? 6)
+/** 开关月度汇总的轮数（翻书释放检查） */
+const REPORT_ROUNDS = Number(process.env.SMOKE_REPORT_ROUNDS ?? 6)
 
 const failures = []
 const fail = (msg) => {
@@ -169,10 +172,226 @@ async function dashboardInteract(page, label) {
   if (/^佩戴情况_\d{14}\.xlsx$/.test(fileName)) pass(`${label}：下载 ${fileName}`)
   else fail(`${label}：没有下载到佩戴情况 Excel（${fileName || '无'}）`)
 
+  await reportInteract(page, label)
+
   await page.getByRole('button', { name: '展示模式', exact: true }).click()
   await page.waitForSelector('.map-stage', { timeout: 3000 }).catch(() => null)
   if (new URL(page.url()).hash.includes('mode=map')) pass(`${label}：切换到地图模式`)
   else fail(`${label}：没有切换到地图模式`)
+}
+
+/** "2026-08" → "2026年08月"（和页面的 report-format.ts 一样） */
+const monthText = (m) => (m ? `${m.slice(0, 4)}年${m.slice(5, 7)}月` : '')
+/** 去掉所有空白，比较文字时不受换行、<b> 两边空格影响 */
+const squash = (t) => (t ?? '').replace(/\s+/g, '')
+
+/** 第 n 页（封面是 0）的文字 */
+async function pageText(page, n) {
+  return squash(await page.locator('.book-page').nth(n).textContent())
+}
+
+/** 每秒 requestAnimationFrame 回调的次数（ECharts、翻书的绘制循环都用它；关掉的书还在画就会多出来） */
+async function rafPerSecond(page) {
+  const a = await page.evaluate(() => window.__raf)
+  await page.waitForTimeout(1000)
+  return (await page.evaluate(() => window.__raf)) - a
+}
+
+/** 翻到第 n 页所在的对页，等翻完 */
+async function waitSpread(page, n) {
+  return page.locator(`.book[data-page="${n}"][data-flip-state="read"]`).waitFor({ timeout: 5000 })
+    .then(() => true, () => false)
+}
+
+/** 月度汇总（动态数据页"月度汇总"打开）：分包按需下载、13 页的页码和免责声明、每页数字和接口一致、
+ *  没有数据的页"暂无数据"、键盘/点击/拖动/目录翻页、页角卷起、切换月份、Esc 关闭，最后反复开关看释放 */
+async function reportInteract(page, label) {
+  const loaded = () => page.evaluate(() => performance.getEntriesByType('resource')
+    .some((e) => /page-flip|MonthlyReportDialog/.test(e.name)))
+  if (await loaded()) fail(`${label}：还没打开月报就下载了 page-flip`)
+  else pass(`${label}：打开月报前没有下载 page-flip 和月报分包`)
+
+  const rafBefore = await rafPerSecond(page)
+  const base = await (async () => {
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Performance.enable')
+    await cdp.send('HeapProfiler.collectGarbage')
+    const { metrics } = await cdp.send('Performance.getMetrics')
+    await cdp.detach()
+    return Object.fromEntries(metrics.map((x) => [x.name, x.value]))
+  })()
+
+  await page.getByRole('button', { name: '月度汇总', exact: true }).click()
+  const ready = await page.locator('.book[data-state="ready"]').waitFor({ timeout: 10000 }).then(() => true, () => false)
+  if (ready && await loaded()) pass(`${label}：点"月度汇总"打开翻书，这时才下载 page-flip`)
+  else fail(`${label}：月度汇总没有打开（ready=${ready}）`)
+
+  const months = await apiGet(page, '/report/months')
+  const month = months.defaultMonth
+  // 等报告加载完（页面不再显示"加载中"）
+  await page.waitForFunction(() => !document.querySelector('.rp__state'), null, { timeout: 15000 }).catch(() => null)
+  const r = month ? await apiGet(page, `/report/monthly?month=${month}`) : null
+  const cover = squash(await page.locator('.cover__month').textContent())
+  if (cover === (month ? monthText(month) : '暂无数据')) pass(`${label}：封面月份"${cover}"（有数据的月份 ${months.months.join('、') || '无'}，默认 ${month}）`)
+  else fail(`${label}：封面月份"${cover}"，接口默认 ${month}`)
+
+  const nos = (await page.locator('.rp__no').allTextContents()).map(squash)
+  const want = Array.from({ length: 13 }, (_, i) => `${i + 1}/13`)
+  if (JSON.stringify(nos) === JSON.stringify(want)) pass(`${label}：13 页页码 1/13 … 13/13`)
+  else fail(`${label}：页码不对：${nos.join(' ')}`)
+  const disclaimers = await page.locator('.rp__disclaimer', { hasText: '不能作为临床或治疗的依据' }).count()
+  if (disclaimers === 13) pass(`${label}：13 页都有免责声明`)
+  else fail(`${label}：有免责声明的页 ${disclaimers} 个`)
+  if ((await page.locator('.book-page').count()) === 15) pass(`${label}：封面 + 13 页 + 封底`)
+  else fail(`${label}：书页 ${await page.locator('.book-page').count()} 个`)
+
+  // ---- 每页的数字和接口一致；没有数据的页显示"暂无数据" ----
+  if (r) {
+    const m = monthText(month)
+    const checks = [
+      [3, r.overview, () => `涉及职工${r.overview.workerCount}人，涵盖工种${r.overview.jobKindCount}个`],
+      [4, r.watchUsage, () => `共有${r.watchUsage.userCount}人使用智能手表`],
+      [5, r.vitals, () => ['HEART_RATE', 'TEMPERATURE', 'SPO2'].map((k) => r.vitals[k]
+        ? `最大值${k === 'TEMPERATURE' ? r.vitals[k].max.toFixed(1) : r.vitals[k].max}` : '暂无数据')],
+      [6, r.alerts, () => `共发生${r.alerts.events}起，涉及${r.alerts.persons}人`],
+      [8, r.stability?.HEART_RATE, () => `共${r.stability.HEART_RATE.persons}人有心率数据`],
+      [9, r.stability?.TEMPERATURE, () => `共${r.stability.TEMPERATURE.persons}人有体温数据`],
+      [10, r.stability?.SPO2, () => `共${r.stability.SPO2.persons}人有血氧数据`],
+      [11, r.steps, () => r.steps.low[0] ? `${r.steps.low[0].name}${r.steps.low[0].cardCode.slice(-5)}` : '没有人有'],
+      [12, r.steps, () => r.steps.high[0] ? `${r.steps.high[0].avgSteps}` : '没有人有'],
+      [13, r.risk, () => r.risk.total > 0 ? `需要重点关注的职工共${r.risk.total}人` : '本月暂无需要重点关注的职工']
+    ]
+    const empties = []
+    for (const [n, section, text] of checks) {
+      const t = await pageText(page, n)
+      if (!section) {
+        const emptyText = n === 6 ? `${m}，本月暂无告警数据` : `${m}，暂无数据`
+        if (t.includes(squash(emptyText))) empties.push(n)
+        else fail(`${label}：第 ${n} 页没有数据，应显示"${emptyText}"`)
+      } else if ([].concat(text()).every((x) => t.includes(squash(x)))) {
+        pass(`${label}：第 ${n} 页和接口一致（${[].concat(text()).join(' / ').slice(0, 50)}）`)
+      } else fail(`${label}：第 ${n} 页和接口不一致，应含"${[].concat(text()).join('"、"')}"`)
+    }
+    if (empties.length) pass(`${label}：没有数据的第 ${empties.join('、')} 页显示"暂无数据"`)
+  }
+
+  // ---- 翻页：页角卷起、键盘、点击、拖动、目录 ----
+  const book = page.locator('.book')
+  const pageBox = async () => {
+    const b = await page.locator('.stf__block').boundingBox()
+    return { x: b.x, y: b.y, w: b.width, h: b.height }
+  }
+  let box = await pageBox()
+  await page.mouse.move(box.x + box.w - 6, box.y + box.h - 6)
+  const curled = await page.locator('.book[data-flip-state="fold_corner"]').waitFor({ timeout: 3000 }).then(() => true, () => false)
+  if (curled) pass(`${label}：鼠标移到封面右下角，页角卷起`)
+  else fail(`${label}：鼠标在右下角，页角没有卷起（${await book.getAttribute('data-flip-state')}）`)
+  await page.mouse.move(box.x + box.w / 2, box.y - 30)
+  await page.locator('.book[data-flip-state="read"]').waitFor({ timeout: 3000 }).catch(() => null)
+  await page.screenshot({ path: path.join(SHOT_DIR, 'report-0-cover.png') })
+
+  const order = [1, 3, 5, 7, 9, 11, 13]
+  let keyOk = true
+  for (const n of order) {
+    await page.keyboard.press('ArrowRight')
+    if (!(await waitSpread(page, n))) {
+      keyOk = false
+      fail(`${label}：→ 没有翻到第 ${n} 页（停在 ${await book.getAttribute('data-page')}）`)
+      break
+    }
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(SHOT_DIR, `report-${String(n).padStart(2, '0')}.png`) })
+  }
+  if (keyOk) pass(`${label}：键盘 → 依次翻到 1、3、5…13 页（每个对页截图 report-*.png）`)
+  await page.keyboard.press('ArrowRight')
+  await page.waitForTimeout(1200)
+  if ((await book.getAttribute('data-page')) === '13') pass(`${label}：最后一个对页（13 / 封底）再按 → 不动，第 13 页没有落单`)
+  else fail(`${label}：最后一页之后还能翻：${await book.getAttribute('data-page')}`)
+  await page.keyboard.press('ArrowLeft')
+  if (await waitSpread(page, 11)) pass(`${label}：← 翻回第 11 页`)
+  else fail(`${label}：← 没有翻回第 11 页`)
+
+  // 点右页正中：翻到下一页；从右边缘拖到左边：再翻一页（先回到第 1 页）
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(900)
+  }
+  if (!(await waitSpread(page, 1))) fail(`${label}：没有回到第 1 页`)
+  box = await pageBox()
+  await page.mouse.click(box.x + box.w * 0.75, box.y + box.h * 0.5)
+  if (await waitSpread(page, 3)) pass(`${label}：点击右页翻到第 3 页`)
+  else fail(`${label}：点击右页没有翻页（${await book.getAttribute('data-page')}）`)
+  await page.mouse.move(box.x + box.w - 10, box.y + box.h - 30)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) await page.mouse.move(box.x + box.w - 10 - i * 60, box.y + box.h - 40, { steps: 2 })
+  await page.mouse.up()
+  if (await waitSpread(page, 5)) pass(`${label}：从右下角往左拖，翻到第 5 页`)
+  else fail(`${label}：拖动没有翻页（${await book.getAttribute('data-page')}）`)
+
+  // 目录：回到第 1–2 页，点"二、职工健康评估"
+  for (let i = 0; i < 2; i++) {
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForTimeout(900)
+  }
+  await waitSpread(page, 1)
+  await page.locator('.catalog__item', { hasText: '职工健康评估' }).click()
+  if (await waitSpread(page, 7)) pass(`${label}：目录里点"职工健康评估"翻到第 7 页`)
+  else fail(`${label}：目录没有翻到第 7 页（${await book.getAttribute('data-page')}）`)
+
+  // ---- 切换月份：换一个有数据的月份，第 4 页跟着变 ----
+  const other = months.months.find((x) => x !== month)
+  if (other) {
+    await page.locator('.report__month select').selectOption(other)
+    await page.waitForFunction((t) => document.querySelector('.cover__month')?.textContent?.trim() === t,
+      monthText(other), { timeout: 5000 }).catch(() => null)
+    await page.waitForFunction(() => !document.querySelector('.rp__state'), null, { timeout: 15000 }).catch(() => null)
+    const r2 = await apiGet(page, `/report/monthly?month=${other}`)
+    const t4 = await pageText(page, 4)
+    const ok = r2.watchUsage ? t4.includes(`共有${r2.watchUsage.userCount}人`) : t4.includes(squash(`${monthText(other)}，暂无数据`))
+    if (ok) pass(`${label}：切换到 ${other}，第 4 页${r2.watchUsage ? `${r2.watchUsage.userCount} 人` : '"暂无数据"'}和接口一致`)
+    else fail(`${label}：切换到 ${other} 后第 4 页不对`)
+  }
+
+  await page.keyboard.press('Escape')
+  if (await page.locator('.report').waitFor({ state: 'detached', timeout: 3000 }).then(() => true, () => false)) {
+    pass(`${label}：Esc 关闭月度汇总`)
+  } else fail(`${label}：Esc 没有关闭月度汇总`)
+
+  // ---- 反复开关：绘制循环、图表、DOM、事件监听都要释放 ----
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Performance.enable')
+  const measure = async () => {
+    await cdp.send('HeapProfiler.collectGarbage')
+    const { metrics } = await cdp.send('Performance.getMetrics')
+    const x = Object.fromEntries(metrics.map((v) => [v.name, v.value]))
+    return { heapMb: x.JSHeapUsedSize / 1048576, nodes: x.Nodes, listeners: x.JSEventListeners,
+      raf: await rafPerSecond(page) }
+  }
+  const samples = []
+  for (let round = 1; round <= REPORT_ROUNDS; round++) {
+    await page.getByRole('button', { name: '月度汇总', exact: true }).click()
+    await page.locator('.book[data-state="ready"]').waitFor({ timeout: 10000 })
+    await page.waitForFunction(() => !document.querySelector('.rp__state'), null, { timeout: 15000 }).catch(() => null)
+    await page.keyboard.press('ArrowRight')
+    await waitSpread(page, 1)
+    const open = await rafPerSecond(page)
+    await page.locator('.report__close').click()
+    await page.locator('.report').waitFor({ state: 'detached', timeout: 3000 })
+    await page.waitForTimeout(300)
+    samples.push({ ...(await measure()), open })
+  }
+  console.log(`    打开月报前：堆 ${(base.JSHeapUsedSize / 1048576).toFixed(1)} MB、DOM 节点 ${base.Nodes}、监听 ${base.JSEventListeners}、每秒绘制回调 ${rafBefore}` +
+    samples.map((s, i) => `\n      第 ${i + 1} 次关闭后：堆 ${s.heapMb.toFixed(1)} MB、DOM 节点 ${s.nodes}、监听 ${s.listeners}、每秒绘制回调 ${s.raf}（打开时 ${s.open}）`).join(''))
+  const last = samples.at(-1)
+  const second = samples[1] ?? samples[0]
+  if (samples.every((s) => s.raf <= rafBefore + 15)) pass(`${label}：每次关闭后每秒绘制回调回到 ${rafBefore} 左右（打开时 ${samples[0].open}），绘制循环都停了`)
+  else fail(`${label}：关闭后绘制回调没有回落：${samples.map((s) => s.raf).join('、')}（打开前 ${rafBefore}）`)
+  if (last.heapMb - second.heapMb < 3) pass(`${label}：JS 堆第 2 次 ${second.heapMb.toFixed(1)} MB → 最后 ${last.heapMb.toFixed(1)} MB（增长 < 3 MB）`)
+  else fail(`${label}：JS 堆一直在涨：${second.heapMb.toFixed(1)} → ${last.heapMb.toFixed(1)} MB`)
+  if (last.nodes - second.nodes < 300 && last.listeners - second.listeners < 30) {
+    pass(`${label}：DOM 节点 ${second.nodes} → ${last.nodes}、事件监听 ${second.listeners} → ${last.listeners}，没有越积越多`)
+  } else fail(`${label}：DOM 节点 ${second.nodes} → ${last.nodes}、事件监听 ${second.listeners} → ${last.listeners}`)
+  await cdp.detach()
 }
 
 /** 地图模式：底图出来了、名单过滤、搜索、摆放模式和操作记录（只看不改，不保存任何摆放） */
@@ -312,9 +531,13 @@ async function archiveInteract(page, label) {
     await expectTotal(first.total, '重置')
   }
   await page.getByRole('button', { name: '健康数据汇总' }).click()
-  if (await page.locator('.el-message', { hasText: '建设中' }).waitFor({ timeout: 3000 }).then(() => true, () => false)) {
-    pass(`${label}："健康数据汇总"提示建设中（阶段 6）`)
-  } else fail(`${label}："健康数据汇总"没有反应`)
+  if (await page.locator('.book[data-state="ready"]').waitFor({ timeout: 10000 }).then(() => true, () => false)) {
+    pass(`${label}："健康数据汇总"打开月度汇总`)
+  } else fail(`${label}："健康数据汇总"没有打开月度汇总`)
+  await page.keyboard.press('Escape')
+  if (await page.locator('.report').waitFor({ state: 'detached', timeout: 3000 }).then(() => true, () => false)) {
+    pass(`${label}：Esc 关闭月度汇总`)
+  } else fail(`${label}：Esc 没有关闭月度汇总`)
 
   if (first.list[0]) {
     await page.locator('.person-card__open').first().click()
@@ -324,8 +547,14 @@ async function archiveInteract(page, label) {
   }
 }
 
-/** 进程里的 WebGL 上下文：创建了几个、丢掉（释放）了几个。在每个页面最先执行 */
+/** 进程里的 WebGL 上下文：创建了几个、丢掉（释放）了几个；另外数 requestAnimationFrame 回调的次数。在每个页面最先执行 */
 function countWebGl() {
+  window.__raf = 0
+  const raf = window.requestAnimationFrame.bind(window)
+  window.requestAnimationFrame = (cb) => raf((t) => {
+    window.__raf++
+    cb(t)
+  })
   const seen = new WeakSet()
   window.__gl = { created: 0, lost: 0 }
   const original = HTMLCanvasElement.prototype.getContext
@@ -546,7 +775,36 @@ async function main() {
       }
     }
 
-    // 5. 退出登录
+    // 5. 月度汇总在缩小的画布里（1366×768 时画布缩放约 0.71 倍）：页角卷起、拖动翻页的鼠标位置要按缩放换算
+    console.log('月度汇总 1366×768')
+    {
+      const vp = VIEWPORTS[1]
+      const label = `月度汇总 ${vp.width}×${vp.height}`
+      const page = await ctx.newPage()
+      await page.setViewportSize(vp)
+      const report = watch(page, label)
+      await page.goto(`${BASE}/#/dashboard`, { waitUntil: 'networkidle' })
+      await page.getByRole('button', { name: '月度汇总', exact: true }).click()
+      await page.locator('.book[data-state="ready"]').waitFor({ timeout: 10000 })
+      await page.waitForFunction(() => !document.querySelector('.rp__state'), null, { timeout: 15000 }).catch(() => null)
+      const b = await page.locator('.stf__block').boundingBox()
+      await page.mouse.move(b.x + b.width - 4, b.y + b.height - 4)
+      if (await page.locator('.book[data-flip-state="fold_corner"]').waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+        pass(`${label}：鼠标移到封面右下角，页角卷起`)
+      } else fail(`${label}：页角没有卷起（${await page.locator('.book').getAttribute('data-flip-state')}）`)
+      await page.mouse.down()
+      for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + b.width - 4 - i * 45, b.y + b.height - 20, { steps: 2 })
+      await page.mouse.up()
+      if (await waitSpread(page, 1)) pass(`${label}：从右下角往左拖，翻开封面`)
+      else fail(`${label}：拖动没有翻页（${await page.locator('.book').getAttribute('data-page')}）`)
+      await checkLayout(page, label, vp)
+      await page.screenshot({ path: path.join(SHOT_DIR, `report-${vp.width}x${vp.height}.png`) })
+      await page.keyboard.press('Escape')
+      report()
+      await page.close()
+    }
+
+    // 6. 退出登录
     console.log('退出登录')
     {
       const page = await ctx.newPage()

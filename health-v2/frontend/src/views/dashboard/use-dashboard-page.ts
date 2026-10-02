@@ -1,7 +1,6 @@
 // 动态数据页的状态和动作（docs/05 第四节）。模板只从返回值里取东西。
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import {
   fetchHeadcount,
   fetchHeadcountSeries,
@@ -85,11 +84,8 @@ export function useDashboardPage() {
   const exportOpen = ref(false)
   const deviceEventsOpen = ref(false)
   const alertCategory = ref<AlertCategory | null>(null)
-
-  function openMonthly() {
-    // 月度汇总（翻书）在阶段 6 做
-    ElMessage.info('建设中')
-  }
+  /** 月度汇总（翻书，docs/07 第二部分） */
+  const monthlyOpen = ref(false)
 
   return {
     mode,
@@ -113,6 +109,6 @@ export function useDashboardPage() {
     exportOpen,
     deviceEventsOpen,
     alertCategory,
-    openMonthly
+    monthlyOpen
   }
 }

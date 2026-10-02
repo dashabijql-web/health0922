@@ -14,6 +14,8 @@
   python3 tools/positioning-sim/sim.py run           先 base，再每 5 分钟 tick 一次（--interval 改间隔）
   python3 tools/positioning-sim/sim.py bad <类型>     故意造异常文件，类型见 bad -h
   python3 tools/positioning-sim/sim.py people --json 输出假人名单
+  python3 tools/positioning-sim/sim.py --inbox <测试收件箱> backfill --from 2026-09-01 --to 2026-10-01
+                                                     按过去的时间补一段 RYSS（月报测试数据，只能放进测试用的收件箱）
   python3 tools/positioning-sim/sim.py reset         清掉模拟状态（谁在井下、在哪）
 """
 
@@ -129,7 +131,7 @@ def render(head, records, complete=True):
     return body + ("||" if complete else "")
 
 
-def write_file(args, file_type, t, content, mine_dir=None, exact_path=None):
+def write_file(args, file_type, t, content, mine_dir=None, exact_path=None, quiet=False):
     """先写到临时目录再改名放进收件箱，后端不会读到写了一半的文件。
 
     收件箱里已有同名文件（同一秒生成了两份同类型文件）时，文件名里的时间往后推 1 秒，
@@ -148,6 +150,8 @@ def write_file(args, file_type, t, content, mine_dir=None, exact_path=None):
     tmp = TMP_DIR / (name + ".part")
     tmp.write_text(content, encoding="utf-8")
     os.replace(tmp, target_dir / name)
+    if quiet:
+        return target_dir / name
     print(f"写入 {target_dir.relative_to(HV2_ROOT) if target_dir.is_relative_to(HV2_ROOT) else target_dir}/{name}")
     return target_dir / name
 
@@ -330,6 +334,35 @@ def cmd_bad(args):
         write_file(args, "RYSS", now, content, mine_dir=other_dir)
 
 
+def cmd_backfill(args):
+    """按过去的时间补一段 RYSS（docs/08 阶段 6：历史数据回填，给月报测试用）。
+
+    从"谁都不在井下"开始，按间隔逐个时刻推进（和 tick 同一套规则），每个时刻一份 RYSS，文件头是那个过去的时间。
+    不读写 state.json，不影响正在运行的 tick / run。后端照常解析入库：旧文件后到记 STALE，但每日出入井
+    （POS_PRESENCE_DAILY）和人数曲线照常写入（docs/02 第四节）。
+
+    只能放进测试用的收件箱：业务后端读的是默认收件箱 runtime/inbox，往那里放过去的文件会把假数据写进业务库。
+    """
+    if not args.inbox:
+        sys.exit("backfill 必须用 --inbox 指定测试后端的收件箱")
+    target = Path(args.inbox).resolve()
+    if target == (RUNTIME / "inbox").resolve():
+        sys.exit("拒绝往业务收件箱 runtime/inbox 补历史数据（业务后端会把它写进业务库）")
+    start = datetime.strptime(args.start, "%Y-%m-%d")
+    end = datetime.strptime(args.end, "%Y-%m-%d")
+    if not start < end <= datetime.now():
+        sys.exit("时间段不对：要求 --from 早于 --to，且 --to 不晚于现在")
+    _, stations = build_mine()
+    people = build_people(args.people)
+    state = {"people": {}}
+    t, n = start, 0
+    while t < end:
+        write_file(args, "RYSS", t, render(header(t), step(state, people, stations, t)), quiet=True)
+        n += 1
+        t += timedelta(seconds=args.interval)
+    print(f"补了 {n} 份 RYSS（{args.start} 到 {args.end}，每 {args.interval} 秒一份），放进 {inbox_dir(args)}")
+
+
 def cmd_people(args):
     people = build_people(args.people)
     if args.json:
@@ -362,9 +395,13 @@ def main():
     ppl = sub.add_parser("people", help="输出假人名单")
     ppl.add_argument("--json", action="store_true")
     sub.add_parser("reset", help="清空模拟状态")
+    bf = sub.add_parser("backfill", help="按过去的时间补一段 RYSS（只能放进测试用的收件箱）")
+    bf.add_argument("--from", dest="start", required=True, help="开始日期 yyyy-MM-dd（含）")
+    bf.add_argument("--to", dest="end", required=True, help="结束日期 yyyy-MM-dd（不含）")
+    bf.add_argument("--interval", type=int, default=3600, help="间隔秒数，默认 3600（三八制下每小时一份足够记下每天谁下过井）")
     args = ap.parse_args()
     {"base": cmd_base, "tick": cmd_tick, "run": cmd_run, "bad": cmd_bad, "people": cmd_people,
-     "reset": cmd_reset}[args.cmd](args)
+     "reset": cmd_reset, "backfill": cmd_backfill}[args.cmd](args)
 
 
 if __name__ == "__main__":

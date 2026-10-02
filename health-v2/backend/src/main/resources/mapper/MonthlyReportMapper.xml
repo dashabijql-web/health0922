@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  月度汇总（docs/07 第二部分"三、计算口径"）。只读汇总表、预警事件和每日出入井，不扫体征流水 HEALTH_RECORD。
+  日期范围 [from, to) 由调用方按所选月份传进来。"现在所属的岗位类别"：工种归到哪一类就是哪一类，
+  没归类、工种为空都算 DEFAULT（和 AlertRules、日汇总的规则一样）。
+-->
+<mapper namespace="com.xzkj.hv2.report.MonthlyReportMapper">
+
+    <update id="readOnlyTransaction">
+        SET TRANSACTION READ ONLY
+    </update>
+
+    <!--
+      有数据的月份：从四张表最早的一天所在的月，到今天所在的月，逐月看有没有数据。
+      每张表都按日期（或时间）列开头的索引查最小值和"这个月有没有一行"，不用整表扫描。
+      六类告警之外的设备事件（低电、脱落等）不算，月报里不展示它们。
+    -->
+    <select id="months" resultType="string">
+        WITH lo AS (
+            SELECT TRUNC(LEAST(NVL((SELECT MIN(STAT_DATE) FROM HEALTH_DAILY_SUMMARY), #{today}),
+                               NVL((SELECT MIN(STAT_DATE) FROM STEP_DAILY), #{today}),
+                               NVL((SELECT CAST(MIN(OCCURRED_AT) AS DATE) FROM ALERT_EVENT), #{today}),
+                               NVL((SELECT MIN(STAT_DATE) FROM POS_PRESENCE_DAILY), #{today})), 'MM') M
+              FROM DUAL
+        ),
+        m AS (
+            SELECT ADD_MONTHS(lo.M, LEVEL - 1) M
+              FROM lo
+            CONNECT BY LEVEL &lt;= MONTHS_BETWEEN(TRUNC(#{today}, 'MM'), lo.M) + 1
+        )
+        SELECT TO_CHAR(m.M, 'YYYY-MM')
+          FROM m
+         WHERE EXISTS (SELECT 1 FROM HEALTH_DAILY_SUMMARY h
+                        WHERE h.STAT_DATE &gt;= m.M AND h.STAT_DATE &lt; ADD_MONTHS(m.M, 1))
+            OR EXISTS (SELECT 1 FROM STEP_DAILY s
+                        WHERE s.STAT_DATE &gt;= m.M AND s.STAT_DATE &lt; ADD_MONTHS(m.M, 1))
+            OR EXISTS (SELECT 1 FROM ALERT_EVENT e
+                        WHERE e.OCCURRED_AT &gt;= CAST(m.M AS TIMESTAMP)
+                          AND e.OCCURRED_AT &lt; CAST(ADD_MONTHS(m.M, 1) AS TIMESTAMP)
+                          AND e.CATEGORY &lt;&gt; 'OTHER')
+            OR EXISTS (SELECT 1 FROM POS_PRESENCE_DAILY d
+                        WHERE d.STAT_DATE &gt;= m.M AND d.STAT_DATE &lt; ADD_MONTHS(m.M, 1))
+         ORDER BY m.M
+    </select>
+
+    <!-- 第 3 页：本月至少有一天入井记录的人（POS_PRESENCE_DAILY 只记出入井标志为 1 的日子） -->
+    <select id="presenceByJobKind" resultType="com.xzkj.hv2.report.MonthlyReportMapper$NameCount">
+        SELECT p.JOB_KIND NAME, COUNT(*) CNT
+          FROM (SELECT DISTINCT CARD_CODE FROM POS_PRESENCE_DAILY
+                 WHERE STAT_DATE &gt;= #{from} AND STAT_DATE &lt; #{to}) d
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = d.CARD_CODE
+         GROUP BY p.JOB_KIND
+         ORDER BY CNT DESC, NLSSORT(p.JOB_KIND, 'NLS_SORT=SCHINESE_PINYIN_M') NULLS LAST, p.JOB_KIND
+    </select>
+
+    <!-- 第 4 页：本月有体征日汇总的人 -->
+    <select id="watchUsersByDept" resultType="com.xzkj.hv2.report.MonthlyReportMapper$NameCount">
+        SELECT p.DEPT NAME, COUNT(*) CNT
+          FROM (SELECT DISTINCT CARD_CODE FROM HEALTH_DAILY_SUMMARY
+                 WHERE STAT_DATE &gt;= #{from} AND STAT_DATE &lt; #{to}) h
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = h.CARD_CODE
+         GROUP BY p.DEPT
+         ORDER BY CNT DESC, NLSSORT(p.DEPT, 'NLS_SORT=SCHINESE_PINYIN_M') NULLS LAST, p.DEPT
+    </select>
+
+    <!-- 第 5 页：月最大 = 各日最大中的最大，月最小 = 各日最小中的最小，平均按每天样本数加权（除法在 Java 里做） -->
+    <select id="vitals" resultType="com.xzkj.hv2.report.MonthlyReportMapper$VitalRow">
+        SELECT METRIC, MAX(MAX_V) MAX_V, MIN(MIN_V) MIN_V, SUM(AVG_V * SAMPLE_COUNT) WEIGHTED_SUM,
+               SUM(SAMPLE_COUNT) SAMPLES, COUNT(DISTINCT CARD_CODE) PERSONS
+          FROM HEALTH_DAILY_SUMMARY
+         WHERE STAT_DATE &gt;= #{from} AND STAT_DATE &lt; #{to}
+           AND METRIC IN ('HEART_RATE', 'TEMPERATURE', 'SPO2')
+           AND SAMPLE_COUNT &gt; 0
+         GROUP BY METRIC
+    </select>
+
+    <!-- 第 6 页：没绑定的手表的事件没有卡编码，按设备号算一个人（和大屏告警格子一样） -->
+    <sql id="sixCategories">
+        OCCURRED_AT &gt;= #{from} AND OCCURRED_AT &lt; #{to} AND CATEGORY &lt;&gt; 'OTHER'
+    </sql>
+
+    <select id="alertsByCategory" resultType="com.xzkj.hv2.report.MonthlyReportMapper$CategoryRow">
+        SELECT CATEGORY, COUNT(DISTINCT NVL(CARD_CODE, 'imei:' || DEVICE_IMEI)) PERSONS, COUNT(*) EVENTS
+          FROM ALERT_EVENT
+         WHERE <include refid="sixCategories"/>
+         GROUP BY CATEGORY
+    </select>
+
+    <select id="alertPersons" resultType="int">
+        SELECT COUNT(DISTINCT NVL(CARD_CODE, 'imei:' || DEVICE_IMEI))
+          FROM ALERT_EVENT
+         WHERE <include refid="sixCategories"/>
+    </select>
+
+    <!-- 第 8–10、13 页：每人每项指标本月的天数、正常率的分子分母 -->
+    <select id="personMetrics" resultType="com.xzkj.hv2.report.MonthlyReportMapper$PersonMetricRow">
+        SELECT h.CARD_CODE, h.METRIC, h.DAYS, h.SAMPLES, h.NORMALS, h.MIN_V, h.MAX_V,
+               p.PERSON_NAME, p.DEPT, NVL(k.GROUP_CODE, 'DEFAULT') GROUP_CODE
+          FROM (SELECT CARD_CODE, METRIC, COUNT(*) DAYS, SUM(SAMPLE_COUNT) SAMPLES, SUM(NORMAL_COUNT) NORMALS,
+                       MIN(MIN_V) MIN_V, MAX(MAX_V) MAX_V
+                  FROM HEALTH_DAILY_SUMMARY
+                 WHERE STAT_DATE &gt;= #{from} AND STAT_DATE &lt; #{to}
+                   AND METRIC IN ('HEART_RATE', 'TEMPERATURE', 'SPO2')
+                   AND SAMPLE_COUNT &gt; 0
+                 GROUP BY CARD_CODE, METRIC) h
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = h.CARD_CODE
+          LEFT JOIN JOB_KIND_GROUP k ON k.JOB_KIND = p.JOB_KIND
+    </select>
+
+    <select id="groups" resultType="com.xzkj.hv2.report.MonthlyReportMapper$GroupRow">
+        SELECT GROUP_CODE, GROUP_NAME, MIN_EVAL_DAYS, RISK_EVENT_COUNT
+          FROM JOB_GROUP
+         ORDER BY CASE GROUP_CODE WHEN 'DEFAULT' THEN 0 ELSE 1 END, SORT_NO, GROUP_CODE
+    </select>
+
+    <select id="rules" resultType="com.xzkj.hv2.report.MonthlyReportMapper$RuleRow">
+        SELECT GROUP_CODE, METRIC, LOW_LIMIT, HIGH_LIMIT, ENABLED, STABLE_PCT, UNSTABLE_PCT
+          FROM ALERT_RULE
+         WHERE METRIC IN ('HEART_RATE', 'TEMPERATURE', 'SPO2')
+    </select>
+
+    <!-- 第 11、12 页 -->
+    <select id="steps" resultType="com.xzkj.hv2.report.MonthlyReportMapper$StepRow">
+        SELECT s.CARD_CODE, s.DAYS, s.TOTAL, p.PERSON_NAME, p.DEPT
+          FROM (SELECT CARD_CODE, COUNT(*) DAYS, SUM(STEPS) TOTAL
+                  FROM STEP_DAILY
+                 WHERE STAT_DATE &gt;= #{from} AND STAT_DATE &lt; #{to}
+                 GROUP BY CARD_CODE) s
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = s.CARD_CODE
+    </select>
+
+    <!-- 第 13 页：没有卡编码的事件（没绑定的手表）说不出是哪位职工，不参与风险职工评估 -->
+    <select id="personAlerts" resultType="com.xzkj.hv2.report.MonthlyReportMapper$PersonAlertRow">
+        SELECT e.CARD_CODE, e.CODE, e.EVENTS, p.PERSON_NAME, p.DEPT, NVL(k.GROUP_CODE, 'DEFAULT') GROUP_CODE
+          FROM (SELECT CARD_CODE, CODE, COUNT(*) EVENTS
+                  FROM ALERT_EVENT
+                 WHERE <include refid="sixCategories"/> AND CARD_CODE IS NOT NULL
+                 GROUP BY CARD_CODE, CODE) e
+          LEFT JOIN POS_PERSON p ON p.CARD_CODE = e.CARD_CODE
+          LEFT JOIN JOB_KIND_GROUP k ON k.JOB_KIND = p.JOB_KIND
+    </select>
+</mapper>

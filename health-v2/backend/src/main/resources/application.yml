@@ -126,6 +126,10 @@ hv2:
   health:
     # HEALTH_DAILY_SUMMARY：每 5 分钟重算今天，0:10 定稿昨天
     summary-enabled: ${HEALTH_SUMMARY_ENABLED:true}
+  report:
+    # 月度汇总（docs/07 第二部分）：运动量排行只统计有 5 天以上步数记录的人；已结束的月份缓存 1 天
+    step-min-days: 5
+    cache-ttl: 1d
   map:
     # 底图（docs/06）。WMS 地址默认是站内路径，由前端开发服务器 / nginx 转给 GeoServer
     wms-url: ${MAP_WMS_URL:/geoserver/hv2/wms}

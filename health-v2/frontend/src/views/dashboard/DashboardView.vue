@@ -11,7 +11,7 @@
         v-if="page.mode.value === 'display'"
         :overview="page.overview.data.value"
         @export="page.exportOpen.value = true"
-        @monthly="page.openMonthly"
+        @monthly="page.monthlyOpen.value = true"
         @toggle-mode="page.toggleMode"
       />
       <MapStage v-else :locate="page.locate.value" @toggle-mode="page.toggleMode" />
@@ -70,6 +70,7 @@
     <WearExportDialog :open="page.exportOpen.value" @close="page.exportOpen.value = false" />
     <DeviceEventsDialog :open="page.deviceEventsOpen.value" @close="page.deviceEventsOpen.value = false" />
     <AlertPersonsDialog :category="page.alertCategory.value" @close="page.alertCategory.value = null" />
+    <MonthlyReportDialog v-if="page.monthlyOpen.value" @close="page.monthlyOpen.value = false" />
   </div>
 </template>
 
@@ -90,6 +91,8 @@ import { PERSON_PAGE_SIZE, useDashboardPage } from './use-dashboard-page'
 
 // 地图模式用到 OpenLayers、proj4，体积大，切到地图模式时才加载
 const MapStage = defineAsyncComponent(() => import('./components/MapStage.vue'))
+// 月度汇总用到 page-flip 和饼图，打开时才加载
+const MonthlyReportDialog = defineAsyncComponent(() => import('@/views/report/MonthlyReportDialog.vue'))
 
 const page = useDashboardPage()
 </script>

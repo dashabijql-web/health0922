@@ -103,10 +103,8 @@ export function useArchiveListPage() {
     void router.push(`/archive/${cardCode}`)
   }
 
-  function openMonthly() {
-    // 月度汇总（翻书）在阶段 6 做
-    ElMessage.info('建设中')
-  }
+  /** "健康数据汇总"打开月度汇总（翻书，docs/05 第六节） */
+  const monthlyOpen = ref(false)
 
   onMounted(() => {
     const q = route.query
@@ -123,5 +121,5 @@ export function useArchiveListPage() {
   })
 
   return { draft, applied, page, pages, filters, filtersFailed, data, loading, failed, search, reset, go, openPerson,
-    openMonthly }
+    monthlyOpen }
 }

@@ -10,7 +10,7 @@
              placeholder="请输入职工姓名/卡号进行查询" aria-label="姓名或卡号" />
       <button type="submit" class="pill pill--green archive__query">查询</button>
       <button type="button" class="pill pill--green archive__reset" @click="p.reset">重置</button>
-      <button type="button" class="pill pill--blue archive__monthly" @click="p.openMonthly">健康数据汇总</button>
+      <button type="button" class="pill pill--blue archive__monthly" @click="p.monthlyOpen.value = true">健康数据汇总</button>
     </form>
 
     <!-- 卡片 4 × 3 -->
@@ -46,16 +46,22 @@
       共 <span class="num">{{ p.data.value.total }}</span> 人 · 第 <span class="num">{{ p.page.value }}</span>
       / <span class="num">{{ p.pages.value }}</span> 页<template v-if="p.failed.value"> · 查询失败，显示的是上次的结果</template>
     </p>
+
+    <MonthlyReportDialog v-if="p.monthlyOpen.value" @close="p.monthlyOpen.value = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 // 健康档案（截图 3，docs/05 第六节、docs/09 第六节）：筛选 + 4×3 人员卡片 + 左右翻页。
 // 只列绑定了手表的人（docs/00 第 8 项）。布局按截图坐标换算到 1920×1080 画布，坐标写在下面的样式里。
+import { defineAsyncComponent } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PersonCard from '@/components/PersonCard.vue'
 import ScreenSelect from '@/components/ScreenSelect.vue'
 import { PAGE_SIZE, useArchiveListPage } from './use-archive-list-page'
+
+// 月度汇总用到 page-flip 和饼图，打开时才加载
+const MonthlyReportDialog = defineAsyncComponent(() => import('@/views/report/MonthlyReportDialog.vue'))
 
 const p = useArchiveListPage()
 </script>

@@ -167,6 +167,83 @@
   --chart-line-2: #ffb547;
   --chart-tooltip-bg: rgba(4, 28, 25, 0.92);
 
+  /* ---- 阶段 6：月度汇总（纸质文档感：白底蓝色。颜色取自截图 5–12 的实际像素，docs/09 第八节） ---- */
+  --report-mask: rgba(0, 0, 0, 0.62);
+  --report-close: #f2d21b;
+  --report-close-text: #3a2f00;
+  --report-paper: #ffffff;
+  --report-text: #46454b;
+  --report-text-dim: #8b8a93;
+  --report-blue: #1a5d9a;
+  --report-blue-deep: #0c4183;
+  --report-link: #2f7fb5;
+  /* 页眉横幅：左蓝右靛的渐变，上面一层淡淡的网络连线 */
+  --report-banner-left: #015da8;
+  --report-banner-mid: #04539e;
+  --report-banner-right: #1c347e;
+  --report-banner-line: rgba(150, 210, 255, 0.32);
+  --report-banner-dot: rgba(190, 235, 255, 0.75);
+  /* 小节标题：深蓝斜切条，右端浅灰紫斜角 */
+  --report-tag-deco: #e8e7f0;
+  --report-footer-bar: #0967af;
+  --report-table-head: #f6f6f7;
+  --report-table-line: #e9e9e9;
+  /* 第 7 页概念说明框 */
+  --report-box-bg: #d7efff;
+  --report-box-border: #75c5e0;
+  /* 封面、封底、插画页 */
+  --report-cover-top: #0a5cad;
+  --report-cover-bottom: #01397a;
+  --report-cover-arc: rgba(64, 160, 235, 0.22);
+  --report-cover-arc-2: rgba(30, 120, 210, 0.3);
+  --report-cover-tag: rgba(255, 255, 255, 0.85);
+  --report-cover-note: #f5a33b;
+  --report-back-top: #0084cf;
+  --report-back-bottom: #014c8d;
+  --report-tagline-arrow: #0ceff6;
+  --report-white: #ffffff;
+  /* 插画（我们自己画的等距插画、暂无数据插画） */
+  --report-art-light: #eaf4ff;
+  --report-art-mid: #9cc8f2;
+  --report-art-blue: #3d8bdf;
+  --report-art-deep: #164f9e;
+  --report-art-accent: #f3b54a;
+  --report-art-line: rgba(160, 215, 255, 0.55);
+  --report-empty-line: #5b9bd5;
+  --report-empty-deco: #a9a6c9;
+  /* 图表配色：常见的蓝、绿、黄、红、浅蓝、深绿、橙、紫（截图 7、8） */
+  --report-chart-1: #5470c6;
+  --report-chart-2: #91cc75;
+  --report-chart-3: #fac858;
+  --report-chart-4: #ee6666;
+  --report-chart-5: #73c0de;
+  --report-chart-6: #3ba272;
+  --report-chart-7: #fc8452;
+  --report-chart-8: #9a60b4;
+  --report-chart-other: #b9bec8;
+  --report-chart-grid: #e8ebf0;
+  --report-chart-text: #6e7079;
+  /* 运动量排行（截图 11）：卡片、橙色名次、青绿数值，进度条第 1 名橙红，之后依次橙、黄、蓝、青…… */
+  --report-card-border: #b9dcf5;
+  --report-card-shadow: rgba(80, 150, 220, 0.18);
+  --report-track: #eceef5;
+  --report-rank: #f39a1f;
+  --report-value: #19b3c4;
+  --report-bar-1: #fb5724;
+  --report-bar-2: #ff8a1f;
+  --report-bar-3: #ffb842;
+  --report-bar-4: #3257e6;
+  --report-bar-5: #05a4f5;
+  --report-bar-6: #2acda0;
+  --report-bar-7: #039580;
+  --report-bar-8: #90c251;
+  --report-bar-9: #637f8a;
+  --report-bar-10: #75a281;
+  /* 头像沿用 DefaultAvatar，底色换成截图里的浅蓝 */
+  --report-avatar-disk: #8fd0f5;
+  --report-avatar-disk-edge: #3e9ad6;
+  --report-danger: #d9363e;
+
   --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-number: 'Orbitron', 'Noto Sans SC', monospace;
 
